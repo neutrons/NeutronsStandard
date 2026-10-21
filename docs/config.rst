@@ -10,20 +10,20 @@ Quick Reference
 .. code-block:: python
 
     from neutrons_standard import Config
-    
+
     # Access values
     Config["database.host"]                      # Dot-delimited lookup
     Config.exists("optional.key")                # Check if key exists
-    
+
     # Environment management
     Config.loadEnv("production.yml")             # Load environment config
     Config.reload(env_name="qa.yml")             # Reload with environment
     Config.getCurrentEnv()                       # Get current environment name
-    
+
     # User config
     Config.swapToUserYml()                       # Use ~/.{package_name}/{package_name}-user.yml
     Config.shouldSwapToUserYml()                 # Check if user config available
-    
+
     # Backup
     Config.persistBackup()                       # Backup to ~/.{package_name}/application.yml.bak
     Config.archiveUserYml()                      # Archive versioned user config
@@ -88,7 +88,7 @@ Reference other config values with ``${key.subkey}`` syntax:
       base: /data
       input: ${paths.base}/input         # Resolves to /data/input
       output: ${paths.base}/output
-    
+
     module:
       root: /app                         # Auto-set by Config
 
@@ -127,7 +127,7 @@ Auto-select environment based on app version:
     Config.configureForDeploy()
 
 - Contains ``dev`` → NEXT environment
-- Contains ``rc`` → QA environment  
+- Contains ``rc`` → QA environment
 - Otherwise → PROD environment
 
 Merges and exports to ``application.yml``.
@@ -158,7 +158,7 @@ Failed config loading automatically restores previous state:
         Config.loadEnv("invalid.yml")  # Fails, restores previous
     except Exception:
         pass  # Config unchanged
-    
+
     try:
         value = Config["nonexistent"]  # Raises KeyError
     except KeyError:
@@ -173,14 +173,14 @@ Basic Usage
 .. code-block:: python
 
     from neutrons_standard import Config
-    
+
     # Read values
     host = Config["database.host"]
-    
+
     # Safe access with check
     if Config.exists("optional.feature"):
         feature_dir = Config["optional.feature"]
-    
+
     # Switch environment
     Config.loadEnv("production.yml")
     prod_host = Config["database.host"]
@@ -192,26 +192,26 @@ Configuration File Example
 
     application:
       version: 1.0.0
-    
+
     environment: default
-    
+
     database:
       host: localhost
       port: 5432
       credentials:
         username: app_user
         password: app_pass
-    
+
     paths:
       base: /data
       input: ${paths.base}/input
       output: ${paths.base}/output
       resources: ${module.root}/resources
-    
+
     logging:
       level: INFO
       file: app.log
-    
+
     # Set automatically
     module:
       root: /app

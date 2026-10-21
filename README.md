@@ -44,7 +44,7 @@ dependencies = [
 ]
 ```
 
-or 
+or
 
 ```toml
 [tool.pixi.workspace]

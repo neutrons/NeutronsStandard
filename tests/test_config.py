@@ -12,10 +12,10 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from neutrons_standard import Spec
 from ruamel.yaml import YAML as rYaml
 
 import neutrons_standard.config as Config_module
+from neutrons_standard import Spec
 from neutrons_standard.config import (
     Config,
     DeployEnvEnum,
@@ -23,8 +23,8 @@ from neutrons_standard.config import (
     _find_root_dir,
 )
 
-
 package_name = Spec.client_package_name
+
 
 def test_environment():
     assert Config["environment"] == "test"
@@ -59,6 +59,7 @@ def test_find_root_dir_failure():
     # Test that not being able to define the `MODULE_ROOT` raises an exception.
     with pytest.raises(Exception, match="Unable to determine neutrons_standard module-root directory"):
         _find_root_dir()
+
 
 def test_resource_packageMode(caplog):
     # Test that "package mode" is recognized appropriately.
@@ -200,18 +201,18 @@ def test_resource_packageMode_open():
 def test_Config_persistBackup():
     # mock Path.home() to temporary directory
     with TemporaryDirectory() as tmpdir:
-        with mock.patch.object(Config_module._Config, "_userHome", lambda _ :Path(tmpdir) / f".{package_name}"):
+        with mock.patch.object(Config_module._Config, "_userHome", lambda _: Path(tmpdir) / f".{package_name}"):
             inst = Config_module._Config()
             # remove the application.yml.bak file if it exists
-            if (Path(tmpdir) /  f".{package_name}" / "application.yml.bak").exists():
-                os.remove(Path(tmpdir) /  f".{package_name}" / "application.yml.bak")
-                os.rmdir(Path(tmpdir) /  f".{package_name}")
+            if (Path(tmpdir) / f".{package_name}" / "application.yml.bak").exists():
+                os.remove(Path(tmpdir) / f".{package_name}" / "application.yml.bak")
+                os.rmdir(Path(tmpdir) / f".{package_name}")
 
-            assert not (Path(tmpdir) /  f".{package_name}").exists()
+            assert not (Path(tmpdir) / f".{package_name}").exists()
             # call the persistBackup method
             inst.persistBackup()
-            assert (Path(tmpdir) /  f".{package_name}").exists()
-            assert (Path(tmpdir) /  f".{package_name}" / "application.yml.bak").exists()
+            assert (Path(tmpdir) / f".{package_name}").exists()
+            assert (Path(tmpdir) / f".{package_name}" / "application.yml.bak").exists()
 
 
 def test_Config_accessor():
@@ -287,7 +288,6 @@ def test_packageVersion_not_a_repo():
             Config.packageVersion()
 
 
-
 def test_getCurrentEnv():
     # Test that the current environment is returned correctly
     assert Config.getCurrentEnv() == "test"
@@ -308,7 +308,7 @@ def test_swapToUserYml():
 
             assert f"{package_name}-user" in Config["environment"]
 
-            with open(Path(tmpPath) / f".{package_name}"/ f"{package_name}-user.yml", "r") as file:
+            with open(Path(tmpPath) / f".{package_name}" / f"{package_name}-user.yml", "r") as file:
                 yml = rYaml(typ="safe").load(file)
                 assert yml["application"]["version"] == "1.0.0"
 
@@ -330,7 +330,7 @@ def test_shouldSwapToUserYml():
 
     # Test that the method returns False when the environment variable 'env' is set
     with mock.patch.object(Config, "_userHome") as mockHome, mock.patch.dict(os.environ, {"env": "test"}):
-         with TemporaryDirectory() as tmpDir:
+        with TemporaryDirectory() as tmpDir:
             mockHome.return_value = Path(f"{tmpDir}/{package_name}")
             mockHome.return_value.mkdir(exist_ok=True)
             (mockHome.return_value / f"{package_name}-user.yml").touch()
@@ -371,8 +371,8 @@ def test_swapToUserYml_archive():
                 yml = rYaml(typ="safe").load(file)
                 assert yml["application"]["version"] == "1.0.8"
             assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user.yml").exists()
-            assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user-1.0.0-{dateTime}.yml.bak").exists(), os.listdir(
-                Path(tmpPath) / f".{package_name}"
+            assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user-1.0.0-{dateTime}.yml.bak").exists(), (
+                os.listdir(Path(tmpPath) / f".{package_name}")
             )
 
 
@@ -419,7 +419,7 @@ def test_configureForDeploy():
         (Path(tmpPath) / f"{package_name}_next.yml").write_bytes(nextApplicationYmlPath.read_bytes())
         with (
             mock.patch.object(Resource, "_resources_path", Path(tmpPath)),
-            mock.patch.object(Config, f"packageVersion", mock.Mock(return_value="dev")),
+            mock.patch.object(Config, "packageVersion", mock.Mock(return_value="dev")),
             #   Dont want to overwrite the config for the rest of the tests
             mock.patch.object(Config, "_config", {}),
         ):
