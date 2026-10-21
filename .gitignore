@@ -166,7 +166,7 @@ cython_debug/
 # pixi environments
 .pixi
 *.egg-info
-src/packagenamepy/_version.py
+src/neutrons_standard/_version.py
 
 # do not track conda package archive from pixi-build
 *.conda

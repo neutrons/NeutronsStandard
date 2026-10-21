@@ -44,13 +44,12 @@ dependencies = [
 ]
 ```
 
-or 
+or
 
 ```toml
 [tool.pixi.workspace]
 channels = [
   "neutrons",
-  "conda-forge",
   "conda-forge",
   "https://prefix.dev/pixi-build-backends",
 ]

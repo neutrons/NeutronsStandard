@@ -1,8 +1,7 @@
-
-
 import pytest
 
 from neutrons_standard.test.integration.test_summary import TestSummary
+
 
 @pytest.mark.integration
 class IntegrationTest:
@@ -11,15 +10,18 @@ class IntegrationTest:
         self.test_summary = None
 
         import faulthandler
+
         faulthandler.enable()
-        
+
         yield
-        
+
         faulthandler.disable()
 
         if self.test_summary is None:
-            raise RuntimeError("Integration test failed to initialize self.test_summary.  Every integration test must build its own TestSummary object.")
-        
+            raise RuntimeError(
+                "Integration test failed to initialize self.test_summary.  Every integration test must build its own TestSummary object."
+            )
+
         if isinstance(self.test_summary, TestSummary):
             if not self.test_summary.isComplete():
                 self.test_summary.FAILURE()

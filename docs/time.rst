@@ -10,16 +10,16 @@ Quick Reference
 .. code-block:: python
 
     from neutrons_standard.time import timestamp, parseTimestamp, isoFromTimestamp
-    
+
     # Generate timestamps
     ts = timestamp()                              # Current time (float seconds)
     ts = timestamp(ensureUnique=True)             # Unique, monotonically increasing
-    
+
     # Convert between formats
     float_seconds = parseTimestamp("2026-03-04T16:10:34.817Z")     # ISO string → float
     float_seconds = parseTimestamp(1741100434.817)                 # Float → float
     float_seconds = parseTimestamp(1741100434817)                  # Milliseconds → float
-    
+
     # Format for display/storage
     iso_str = isoFromTimestamp(1741100434.817)    # 2026-03-04T16:10:34.817000000Z
 
@@ -87,7 +87,7 @@ Event Logging
 .. code-block:: python
 
     from neutrons_standard.time import timestamp, isoFromTimestamp
-    
+
     events = []
     for event_type in ["login", "query", "logout"]:
         events.append({
@@ -102,7 +102,7 @@ Performance Measurement
 .. code-block:: python
 
     from neutrons_standard.time import timestamp
-    
+
     start = timestamp()
     perform_operation()
     elapsed = timestamp() - start
@@ -114,14 +114,14 @@ Timestamp Conversion Round-Trip
 .. code-block:: python
 
     from neutrons_standard.time import timestamp, isoFromTimestamp, parseTimestamp
-    
+
     # Original timestamp
     ts1 = timestamp()
-    
+
     # Convert to ISO and back
     iso = isoFromTimestamp(ts1)              # "2026-03-04T16:10:34.817Z"
     ts2 = parseTimestamp(iso)
-    
+
     # Minor rounding error, but functionally equivalent
     assert abs(ts1 - ts2) < 0.001
 
@@ -132,7 +132,7 @@ Configuration Backup Timestamping
 
     from neutrons_standard.time import isoFromTimestamp, timestamp
     from pathlib import Path
-    
+
     def backup_file(filepath):
         backup_time = isoFromTimestamp(timestamp())
         backup_path = Path(filepath).parent / f"{filepath}-{backup_time}.bak"
@@ -148,18 +148,18 @@ Audit Trails
 .. code-block:: python
 
     from neutrons_standard.time import timestamp, isoFromTimestamp
-    
+
     class AuditLog:
         def __init__(self):
             self.events = []
-        
+
         def record(self, action, details):
             self.events.append({
                 'action': action,
                 'timestamp': isoFromTimestamp(timestamp(ensureUnique=True)),
                 'details': details
             })
-    
+
     audit = AuditLog()
     audit.record("user_login", {"user": "alice"})
     audit.record("data_export", {"table": "sales"})
@@ -170,17 +170,17 @@ Time Series Data
 .. code-block:: python
 
     from neutrons_standard.time import timestamp, isoFromTimestamp
-    
+
     class TimeSeries:
         def __init__(self):
             self.points = []
-        
+
         def add_point(self, value):
             self.points.append({
                 'timestamp': timestamp(ensureUnique=True),
                 'value': value
             })
-        
+
         def export_csv(self):
             lines = ["timestamp,value"]
             for point in self.points:
@@ -194,19 +194,19 @@ Database Integration
 .. code-block:: python
 
     from neutrons_standard.time import timestamp, isoFromTimestamp, parseTimestamp
-    
+
     class DatabaseRecord:
         def __init__(self, data):
             self.data = data
             self.created_at = timestamp()
-        
+
         def to_db(self):
             """Save to database with ISO timestamp."""
             return {
                 **self.data,
                 'created_at': isoFromTimestamp(self.created_at)
             }
-        
+
         @classmethod
         def from_db(cls, db_row):
             """Load from database."""
@@ -235,9 +235,9 @@ With ``ensureUnique=True``, timestamps strictly increase even in same second:
 .. code-block:: python
 
     from neutrons_standard.time import timestamp
-    
+
     times = [timestamp(ensureUnique=True) for _ in range(100)]
-    
+
     # Each is strictly greater than the previous
     for i in range(len(times) - 1):
         assert times[i] < times[i + 1]
@@ -249,7 +249,7 @@ Format Examples
 
     Float seconds:
       1741100434.817123456
-    
+
     ISO 8601 (with nanoseconds):
       2026-03-04T16:10:34.817123456Z
       │         │ │  │  │  │          │
@@ -260,6 +260,6 @@ Format Examples
       Minute ─────────────┘          │
       Second & nanoseconds ──────────┘
       Timezone indicator: Z = UTC
-    
+
     Milliseconds (legacy):
       1741100434817
