@@ -14,7 +14,7 @@ Node = namedtuple("Node", "dict key")
 # * Multi-level substitution is not implemented: in general this can _effectively_ result in a
 # period-delimited key corresponding to values from _multiple_ `Config` nodes.
 # It's assumed that this does not pose much limitation, and that it should be possible
-# to accomplish any required "override" usage with (possibly multiple) single-node subsitutions.
+# to accomplish any required "override" usage with (possibly multiple) single-node substitutions.
 
 
 @contextmanager

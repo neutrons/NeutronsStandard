@@ -51,7 +51,6 @@ or
 channels = [
   "neutrons",
   "conda-forge",
-  "conda-forge",
   "https://prefix.dev/pixi-build-backends",
 ]
 

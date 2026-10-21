@@ -21,7 +21,7 @@ Quick Reference
     Config.getCurrentEnv()                       # Get current environment name
     
     # User config
-    Config.swapToUserYml()                       # Use ~/.{package_name}-user.yml
+    Config.swapToUserYml()                       # Use ~/.{package_name}/{package_name}-user.yml
     Config.shouldSwapToUserYml()                 # Check if user config available
     
     # Backup
@@ -99,17 +99,17 @@ Specify environment via:
 
 - Environment variable: ``env=environment_name``
 - YAML property: ``environment: environment_name``
-- Auto-detect user config: ``~/.{package_name}-user.yml``
+- Auto-detect user config: ``~/.{package_name}/{package_name}-user.yml``
 
 User Configuration Management
 -----------------------------
 
-User config (``~/.{package_name}-user.yml``) auto-loads if present and no explicit ``env`` specified. Old configs archived with version + timestamp when app version changes.
+User config (``~/.{package_name}/{package_name}-user.yml``) auto-loads if present, no explicit ``env`` is specified, and this is not a test run. If its ``application.version`` does not match the installed version, it is archived and regenerated from ``application.yml``, replacing any hand edits. Only the newest 5 archives are kept (``_Config._user_yml_archive_limit``).
 
 Configuration Backup
 --------------------
 
-Backups created automatically during ``Config.reload()``:
+Backups are created automatically: ``application.yml.bak`` (the full merged config) on every ``Config.reload()``, and a versioned ``-user`` archive before an out-of-date user config is regenerated (newest 5 kept):
 
 .. code-block:: text
 
@@ -135,14 +135,17 @@ Merges and exports to ``application.yml``.
 Directory Path Expansion
 ------------------------
 
-Home directory ``~`` automatically expands:
+Any string value that is ``~`` or starts with ``~/`` is expanded to the user's home directory when it is read,
+including values produced by ``${...}`` substitution. The stored config (and files written from it) keep the ``~``.
 
 .. code-block:: yaml
 
-    instrument:
-      home: ~/instruments        # Expands to /home/user/instruments
-    samples:
-      home: ~/samples
+    data:
+      home: ~/data               # Config["data.home"] == "/home/user/data"
+    output:
+      dir: ${data.home}/output   # Config["output.dir"] == "/home/user/data/output"
+
+``~user`` forms and a ``~`` anywhere other than the start of the value are left unchanged.
 
 Error Handling
 --------------

@@ -9,8 +9,8 @@ templated:
 
 user:
   application:
-      home: ~/.neutrons_standard/
+      home: ~/.neutrons_standard
 
 test:
   multi-substitution:
-    home: ~/${user.application.home}/test
+    home: ${user.application.home}/test
