@@ -12,10 +12,10 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from neutrons_standard import Spec
 from ruamel.yaml import YAML as rYaml
 
 import neutrons_standard.config as Config_module
+from neutrons_standard import Spec
 from neutrons_standard.config import (
     Config,
     DeployEnvEnum,
@@ -23,8 +23,8 @@ from neutrons_standard.config import (
     _find_root_dir,
 )
 
-
 package_name = Spec.client_package_name
+
 
 def test_environment():
     assert Config["environment"] == "test"
@@ -59,6 +59,7 @@ def test_find_root_dir_failure():
     # Test that not being able to define the `MODULE_ROOT` raises an exception.
     with pytest.raises(Exception, match="Unable to determine neutrons_standard module-root directory"):
         _find_root_dir()
+
 
 def test_resource_packageMode(caplog):
     # Test that "package mode" is recognized appropriately.
@@ -200,18 +201,18 @@ def test_resource_packageMode_open():
 def test_Config_persistBackup():
     # mock Path.home() to temporary directory
     with TemporaryDirectory() as tmpdir:
-        with mock.patch.object(Config_module._Config, "_userHome", lambda _ :Path(tmpdir) / f".{package_name}"):
+        with mock.patch.object(Config_module._Config, "_userHome", lambda _: Path(tmpdir) / f".{package_name}"):
             inst = Config_module._Config()
             # remove the application.yml.bak file if it exists
-            if (Path(tmpdir) /  f".{package_name}" / "application.yml.bak").exists():
-                os.remove(Path(tmpdir) /  f".{package_name}" / "application.yml.bak")
-                os.rmdir(Path(tmpdir) /  f".{package_name}")
+            if (Path(tmpdir) / f".{package_name}" / "application.yml.bak").exists():
+                os.remove(Path(tmpdir) / f".{package_name}" / "application.yml.bak")
+                os.rmdir(Path(tmpdir) / f".{package_name}")
 
-            assert not (Path(tmpdir) /  f".{package_name}").exists()
+            assert not (Path(tmpdir) / f".{package_name}").exists()
             # call the persistBackup method
             inst.persistBackup()
-            assert (Path(tmpdir) /  f".{package_name}").exists()
-            assert (Path(tmpdir) /  f".{package_name}" / "application.yml.bak").exists()
+            assert (Path(tmpdir) / f".{package_name}").exists()
+            assert (Path(tmpdir) / f".{package_name}" / "application.yml.bak").exists()
 
 
 def test_Config_accessor():
@@ -233,24 +234,72 @@ def test_key_substitution():
 
 
 def test_multi_level_substitution():
-    assert Config["test.multi-substitution.home"] == f"~/{Config['user.application.home']}/test"
+    assert Config["test.multi-substitution.home"] == f"{Config['user.application.home']}/test"
+
+
+def test_home_expansion(caplog):
+    home = os.path.expanduser("~")
+    assert Config["user.application.home"] == f"{home}/.neutrons_standard"
+    assert Config["test.multi-substitution.home"] == f"{home}/.neutrons_standard/test"
+    # the stored value is left as written
+    assert Config._config["user"]["application"]["home"] == "~/.neutrons_standard"
+
+    Config._config["test"]["tilde"] = "~"
+    assert Config["test.tilde"] == home
+    for unexpanded in ("/data/~/tmp", "a ~/b"):
+        Config._config["test"]["tilde"] = unexpanded
+        assert Config["test.tilde"] == unexpanded
+
+    # `~user` expands to that user's home directory
+    user = Path(home).name
+    Config._config["test"]["tilde"] = f"~{user}/data"
+    assert Config["test.tilde"] == os.path.expanduser(f"~{user}/data")
+
+    # an unknown user's `~user` is used as written, with a warning logged once
+    Config._config["test"]["tilde"] = "~nonexistent-user-xyz/data"
+    with caplog.at_level(logging.WARNING, logger=f"{package_name}.config.Config"):
+        assert Config["test.tilde"] == "~nonexistent-user-xyz/data"
+        assert Config["test.tilde"] == "~nonexistent-user-xyz/data"
+    warnings = [r for r in caplog.records if "nonexistent-user-xyz" in r.getMessage()]
+    assert len(warnings) == 1
+    assert "no home directory found for user 'nonexistent-user-xyz'" in warnings[0].getMessage()
 
 
 def test_packageVersion():
-    with mock.patch.object(Config_module, "app_version", ""):
+    with mock.patch.object(Config_module.metadata, "version", return_value="1.2.3") as mockVersion:
+        assert Config.packageVersion() == "1.2.3"
+        mockVersion.assert_called_once_with(package_name)
+
+
+def test_packageVersion_not_installed():
+    with mock.patch.object(
+        Config_module.metadata, "version", side_effect=Config_module.metadata.PackageNotFoundError(package_name)
+    ):
         assert len(Config.packageVersion()) == len("b2e9c58bd94d0c95cdfa81cb845deb7c636047db")
 
 
 def test_packageVersion_empty():
     with (
-        mock.patch.dict("sys.modules", {package_name: mock.Mock(__version__="unknown")}),
-        mock.patch.object(Config_module, "subprocess") as mockSubprocess,
-        mock.patch.object(Config_module, "app_version", ""),
+        mock.patch.object(Config_module.metadata, "version", return_value=""),
+        mock.patch.object(Config_module.subprocess, "check_output", return_value=b""),
     ):
-        mockSubprocess.check_output.return_value = b""
         with pytest.raises(ValueError, match="The neutrons_standard Version is not set correctly."):
             Config.packageVersion()
 
+
+def test_packageVersion_not_a_repo():
+    with (
+        mock.patch.object(
+            Config_module.metadata, "version", side_effect=Config_module.metadata.PackageNotFoundError(package_name)
+        ),
+        mock.patch.object(
+            Config_module.subprocess,
+            "check_output",
+            side_effect=Config_module.subprocess.CalledProcessError(128, ["git", "rev-parse", "HEAD"]),
+        ),
+    ):
+        with pytest.raises(ValueError, match="The neutrons_standard Version is not set correctly."):
+            Config.packageVersion()
 
 
 def test_getCurrentEnv():
@@ -268,12 +317,12 @@ def test_swapToUserYml():
             Config.swapToUserYml()
             # check that the file exists
             assert Path(tmpPath).exists()
-            assert (Path(tmpPath) / f".{package_name}").exists()
-            assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user.yml").exists()
+            assert (Path(tmpPath) / ".config" / package_name).exists()
+            assert (Path(tmpPath) / ".config" / package_name / f"{package_name}-user.yml").exists()
 
             assert f"{package_name}-user" in Config["environment"]
 
-            with open(Path(tmpPath) / f".{package_name}"/ f"{package_name}-user.yml", "r") as file:
+            with open(Path(tmpPath) / ".config" / package_name / f"{package_name}-user.yml", "r") as file:
                 yml = rYaml(typ="safe").load(file)
                 assert yml["application"]["version"] == "1.0.0"
 
@@ -295,7 +344,7 @@ def test_shouldSwapToUserYml():
 
     # Test that the method returns False when the environment variable 'env' is set
     with mock.patch.object(Config, "_userHome") as mockHome, mock.patch.dict(os.environ, {"env": "test"}):
-         with TemporaryDirectory() as tmpDir:
+        with TemporaryDirectory() as tmpDir:
             mockHome.return_value = Path(f"{tmpDir}/{package_name}")
             mockHome.return_value.mkdir(exist_ok=True)
             (mockHome.return_value / f"{package_name}-user.yml").touch()
@@ -326,19 +375,113 @@ def test_swapToUserYml_archive():
             Config.swapToUserYml()
             # check that the file exists
             assert Path(tmpPath).exists()
-            assert (Path(tmpPath) / f".{package_name}").exists()
-            assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user.yml").exists()
+            assert (Path(tmpPath) / ".config" / package_name).exists()
+            assert (Path(tmpPath) / ".config" / package_name / f"{package_name}-user.yml").exists()
 
             assert f"{package_name}-user" in Config["environment"]
             Config.packageVersion = lambda: "1.0.8"
             Config.swapToUserYml()
-            with open(Path(tmpPath) / f".{package_name}" / f"{package_name}-user.yml", "r") as file:
+            with open(Path(tmpPath) / ".config" / package_name / f"{package_name}-user.yml", "r") as file:
                 yml = rYaml(typ="safe").load(file)
                 assert yml["application"]["version"] == "1.0.8"
-            assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user.yml").exists()
-            assert (Path(tmpPath) / f".{package_name}" / f"{package_name}-user-1.0.0-{dateTime}.yml.bak").exists(), os.listdir(
-                Path(tmpPath) / f".{package_name}"
-            )
+            assert (Path(tmpPath) / ".config" / package_name / f"{package_name}-user.yml").exists()
+            assert (
+                Path(tmpPath) / ".config" / package_name / f"{package_name}-user-1.0.0-{dateTime}.yml.bak"
+            ).exists(), os.listdir(Path(tmpPath) / ".config" / package_name)
+
+
+def test_swapToUserYml_same_version_no_archive():
+    with TemporaryDirectory(prefix=Resource.getPath("outputs/")) as tmpPath:
+        with mock.patch(f"{package_name}.config.Path.home") as mockHome:
+            Config.packageVersion = lambda: "1.0.0"
+            mockHome.return_value = Path(tmpPath)
+            Config.swapToUserYml()
+            Config.swapToUserYml()
+            assert not list((Path(tmpPath) / ".config" / package_name).glob(f"{package_name}-user-*.yml.bak"))
+
+
+def test_archiveUserYml_limit():
+    with TemporaryDirectory() as tmpPath:
+        userHome = Path(tmpPath)
+        with (
+            mock.patch.object(Config, "_userHome", return_value=userHome),
+            mock.patch.object(Config, "_user_yml_archive_limit", 2),
+            mock.patch.object(Config, "_timestamp", return_value="new"),
+        ):
+            (userHome / f"{package_name}-user.yml").write_text("application:\n  version: 1.0.0\n")
+            # pre-existing archives, oldest first
+            for n in range(3):
+                archive = userHome / f"{package_name}-user-0.0.{n}-old.yml.bak"
+                archive.touch()
+                os.utime(archive, (1000 + n, 1000 + n))
+            # an unrelated file must not be touched
+            (userHome / "application.yml.bak").touch()
+
+            Config.archiveUserYml()
+
+            remaining = sorted(p.name for p in userHome.glob(f"{package_name}-user-*.yml.bak"))
+            assert remaining == [f"{package_name}-user-0.0.2-old.yml.bak", f"{package_name}-user-1.0.0-new.yml.bak"]
+            assert (userHome / "application.yml.bak").exists()
+
+
+@pytest.mark.parametrize(
+    ("limit", "kept"),
+    [(None, 5), (2, 2), (0, 0), (-1, 7), (-2, 5), ("five", 5), (True, 5)],
+)
+def test_archiveUserYml_configured_limit(caplog, limit, kept):
+    # `application.userYmlArchiveLimit` sets the number of archives kept: -1 keeps all of them, 0 keeps none
+    with TemporaryDirectory() as tmpPath:
+        userHome = Path(tmpPath)
+        application = {"version": "1.0.0"} if limit is None else {"version": "1.0.0", "userYmlArchiveLimit": limit}
+        with (
+            mock.patch.object(Config, "_userHome", return_value=userHome),
+            mock.patch.object(Config, "_timestamp", return_value="new"),
+            mock.patch.dict(Config._config, {"application": application}),
+        ):
+            (userHome / f"{package_name}-user.yml").write_text("application:\n  version: 1.0.0\n")
+            for n in range(6):
+                archive = userHome / f"{package_name}-user-0.0.{n}-old.yml.bak"
+                archive.touch()
+                os.utime(archive, (1000 + n, 1000 + n))
+
+            Config.archiveUserYml()
+
+            remaining = list(userHome.glob(f"{package_name}-user-*.yml.bak"))
+            assert len(remaining) == kept
+            if kept:
+                # the newest are kept
+                assert (userHome / f"{package_name}-user-1.0.0-new.yml.bak") in remaining
+            invalid = limit in (-2, "five", True)
+            assert ("Invalid `application.userYmlArchiveLimit" in caplog.text) == invalid
+
+
+def test_userHome_moves_legacy_home():
+    # files in the old `~/.<package>` are moved to `~/.config/<package>` once, and then used
+    with TemporaryDirectory() as tmpdir, mock.patch(f"{package_name}.config.Path.home", return_value=Path(tmpdir)):
+        legacyHome = Path(tmpdir) / f".{package_name}"
+        legacyHome.mkdir()
+        (legacyHome / f"{package_name}-user.yml").write_text("application:\n  version: 1.0.0\n")
+        userHome = Config._userHome()
+        assert userHome == Path(tmpdir) / ".config" / package_name
+        assert (userHome / f"{package_name}-user.yml").exists()
+        assert not legacyHome.exists()
+        # an old directory created later is left alone: the new one is used
+        legacyHome.mkdir()
+        assert Config._userHome() == userHome
+        assert legacyHome.exists()
+
+
+def test_userHome_move_fails(caplog):
+    # if the old directory can't be moved, it is still used
+    with (
+        TemporaryDirectory() as tmpdir,
+        mock.patch(f"{package_name}.config.Path.home", return_value=Path(tmpdir)),
+        mock.patch(f"{package_name}.config.shutil.move", side_effect=OSError("read-only")),
+    ):
+        legacyHome = Path(tmpdir) / f".{package_name}"
+        legacyHome.mkdir()
+        assert Config._userHome() == legacyHome
+        assert "Unable to move the user configuration" in caplog.text
 
 
 def test_configureForDeploy():
@@ -350,8 +493,8 @@ def test_configureForDeploy():
         (Path(tmpPath) / f"{package_name}_next.yml").write_bytes(nextApplicationYmlPath.read_bytes())
         with (
             mock.patch.object(Resource, "_resources_path", Path(tmpPath)),
-            mock.patch.object(Config, f"packageVersion", mock.Mock(return_value="dev")),
-            #   Dont want to overrite the config for the rest of the tests
+            mock.patch.object(Config, "packageVersion", mock.Mock(return_value="dev")),
+            #   Dont want to overwrite the config for the rest of the tests
             mock.patch.object(Config, "_config", {}),
         ):
             Config.configureForDeploy()
@@ -372,10 +515,10 @@ def test_configureForDeploy_qa_or_prod():
     ):
         Config.configureForDeploy()
         mockVersion.assert_called_once()
-        mockMergeExport.assert_called_once_with(DeployEnvEnum.PROD)
+        mockMergeExport.assert_called_once_with(DeployEnvEnum.PROD.envName())
         mockVersion.reset_mock()
         mockMergeExport.reset_mock()
         mockVersion.return_value = "1.0.1rc2"
         Config.configureForDeploy()
         mockVersion.assert_called_once()
-        mockMergeExport.assert_called_once_with(DeployEnvEnum.QA)
+        mockMergeExport.assert_called_once_with(DeployEnvEnum.QA.envName())

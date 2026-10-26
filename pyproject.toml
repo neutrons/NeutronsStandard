@@ -7,7 +7,7 @@ description = "Python library repo for atomic software components generally appl
 dynamic = ["version"]
 requires-python = ">=3.10"
 license = { text = "MIT" }
-keywords = ["neutrons", "common", "python",  "library", "utils"]
+keywords = ["neutrons", "common", "python", "library", "utils"]
 readme = "README.md"
 
 dependencies = [
@@ -88,22 +88,22 @@ conda-pypi-map = { "conda-forge" = "pixi-mapping.json" }
 
 [tool.pixi.dependencies]
 # Conda package dependencies
-python = "3.14.*"            # <3.15: pip-api 0.0.34 (via pip-audit) imports sre_constants, removed in 3.15
+python = "3.14.*"   # <3.15: pip-api 0.0.34 (via pip-audit) imports sre_constants, removed in 3.15
 numpy = "*"
 "ruamel.yaml" = "*"
 # pip-audit
-h2 = ">=4.3.0"               # Known vulnerability in <4.3.0
+h2 = ">=4.3.0"            # Known vulnerability in <4.3.0
 brotli = ">=1.2.0"
-urllib3 = ">=2.6.3"          # Known vulnerability in <2.6.3
-filelock = ">=3.20.3"        # Known vulnerability in <3.20.3
-virtualenv = ">=21.7.13"     # PYSEC-2026-4011..4014; hatch>=1.18.1 supports virtualenv 21 (pypa/hatch#2193)
-cryptography = ">=46.0.5"    # CVE-2026-26007
-pillow = ">=12.1.1"          # CVE-2026-25990
+urllib3 = ">=2.6.3"       # Known vulnerability in <2.6.3
+filelock = ">=3.20.3"     # Known vulnerability in <3.20.3
+virtualenv = ">=21.7.13"  # PYSEC-2026-4011..4014; hatch>=1.18.1 supports virtualenv 21 (pypa/hatch#2193)
+cryptography = ">=46.0.5" # CVE-2026-26007
+pillow = ">=13.0.0"
 
 [tool.pixi.pypi-dependencies]
 # PyPI dependencies, including this package to allow local editable installs
 neutrons_standard = { path = ".", editable = true }
-jaraco-context = ">=6.1.0"                     # CVE-2026-23949
+jaraco-context = ">=6.1.0"                          # CVE-2026-23949
 
 # Pixi Build configuration - https://pixi.sh/latest/reference/pixi_manifest/#pixi-build
 
@@ -118,7 +118,7 @@ numpy = "*"
 
 [tool.pixi.package]
 name = "neutrons_standard"
-version = "0.0.0"     # placeholder, overwritten by sync-version
+version = "0.0.0"          # placeholder, overwritten by sync-version
 
 [tool.pixi.package.build]
 backend = { name = "pixi-build-python", version = "*" }
@@ -134,7 +134,7 @@ default = { features = [
 ], solve-group = "default" }
 
 [tool.pixi.feature.test.dependencies]
-pytest = ">=9.0.3" # PYSEC-2026-1845
+pytest = ">=9.1.1"
 pytest-cov = "*"
 pytest-repeat = "*"
 pytest-xdist = "*"
@@ -143,7 +143,7 @@ pytest-xdist = "*"
 anaconda-client = ">=1.13.0,<2"
 twine = ">=6.1.0,<7"
 versioningit = "*"
-hatch = ">=1.18.1" # first release requiring virtualenv>=21
+hatch = ">=1.18.1"
 
 [tool.pixi.feature.package.pypi-dependencies]
 toml-cli = "*"
@@ -191,7 +191,9 @@ conda-publish = { cmd = "anaconda upload *.conda", description = "Publish the .c
   "conda-build",
 ] }
 # Misc
-audit-deps = { cmd = "pip-audit --local -s osv", description = "Audit the package dependencies for vulnerabilities" }
+# TODO (Glass): CVE-2026-115586 - virtualenv 21.14.12, via pre-commit 4.7.0 and hatch 1.18.1
+#               PYSEC-2026-4322 - brotli 1.2.0, via multiple dependencies (pip-audit, pre-commit, hatch, etc.)
+audit-deps = { cmd = "pip-audit --local -s osv --ignore-vuln CVE-2026-115586 --ignore-vuln PYSEC-2026-4322", description = "Audit the package dependencies for vulnerabilities" }
 # Cleaning
 clean = { cmd = 'rm -rf .pytest_cache .ruff_cache **/*.egg-info **/dist **/__pycache__', description = "Clean up various caches and build artifacts" }
 clean-conda = { cmd = "rm -f *.conda", description = "Clean the local .conda build artifacts" }

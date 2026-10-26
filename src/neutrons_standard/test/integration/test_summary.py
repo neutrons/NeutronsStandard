@@ -1,5 +1,5 @@
-
 from enum import StrEnum
+
 
 class TestSummary:
     def __init__(self):
