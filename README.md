@@ -66,7 +66,7 @@ Then import utilities:
 ```python
 from neutrons_standard import Config
 from neutrons_standard.decorators.singleton import Singleton
-from neutrons_standard.time import timestamp, isoFromTimestamp
+from neutrons_standard.time import timestamp, iso_from_timestamp
 ```
 
 See [`readthedocs`](https://pythoncommons.readthedocs.io/en/latest/) for detailed documentation on each module.

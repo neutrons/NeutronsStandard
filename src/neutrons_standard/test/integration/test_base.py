@@ -19,11 +19,12 @@ class IntegrationTest:
 
         if self.test_summary is None:
             raise RuntimeError(
-                "Integration test failed to initialize self.test_summary.  Every integration test must build its own TestSummary object."
+                "Integration test failed to initialize self.test_summary.  "
+                "Every integration test must build its own TestSummary object."
             )
 
         if isinstance(self.test_summary, TestSummary):
-            if not self.test_summary.isComplete():
-                self.test_summary.FAILURE()
-            if self.test_summary.isFailure():
+            if not self.test_summary.is_complete():
+                self.test_summary.failure()
+            if self.test_summary.is_failure():
                 pytest.fail(f"Test Summary (-vv for full table): {self.test_summary}")

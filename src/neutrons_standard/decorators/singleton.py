@@ -3,10 +3,10 @@
 from functools import wraps
 from typing import Any, List
 
-_Singleton_instances: List[type] = []
+_singleton_instances: List[type] = []
 
 
-def Singleton(orig_cls) -> Any:  # noqa:  ANN001
+def Singleton(orig_cls) -> Any:  # noqa: ANN001, N802
     """Make an annotated class instantiate as a Singleton."""
     orig_new = orig_cls.__new__
     orig_init = orig_cls.__init__
@@ -14,7 +14,7 @@ def Singleton(orig_cls) -> Any:  # noqa:  ANN001
     initialized = False
 
     @wraps(orig_cls.__init__)
-    def __init__(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002, ANN003
+    def __init__(self, *args, **kwargs) -> None:  # noqa: N807, ANN001, ANN002, ANN003
         nonlocal initialized
         if initialized:
             return
@@ -22,14 +22,14 @@ def Singleton(orig_cls) -> Any:  # noqa:  ANN001
         orig_init(self, *args, **kwargs)
 
     @wraps(orig_cls.__new__)
-    def __new__(cls, *args, **kwargs) -> Any:  # noqa: ARG001, ANN001, ANN002, ANN003
+    def __new__(cls, *args, **kwargs) -> Any:  # noqa: N807, ARG001, ANN001, ANN002, ANN003
         nonlocal instance
         if instance is None:
             # this needs to work with object.__new__, which only has only the `cls` arg
             instance = orig_new(cls)  # , *args, **kwargs)
         return instance
 
-    def _reset_Singleton(*, fully_unwrap: bool = False) -> None:
+    def _reset_singleton(*, fully_unwrap: bool = False) -> None:
         # Reset the Singleton:
         #
         #   * The `@Singleton` decorator is applied at time of import.
@@ -54,14 +54,14 @@ def Singleton(orig_cls) -> Any:  # noqa:  ANN001
     orig_cls.__new__ = __new__
     orig_cls.__init__ = __init__
 
-    orig_cls._reset_Singleton = _reset_Singleton
-    global _Singleton_instances
-    _Singleton_instances.append(orig_cls)
+    orig_cls._reset_singleton = _reset_singleton
+    global _singleton_instances
+    _singleton_instances.append(orig_cls)
 
     return orig_cls
 
 
-def reset_Singletons(*, fully_unwrap: bool = False) -> None:
+def reset_singletons(*, fully_unwrap: bool = False) -> None:
     """Reset all singleton objects."""
     # Implementation notes:
     #
@@ -72,6 +72,6 @@ def reset_Singletons(*, fully_unwrap: bool = False) -> None:
     #   * If `fully_unwrap` is set, it is equivalent to removing the `@Singleton` decorator from all of the classes;
     #       and, if that approach is taken, it's only necessary to apply this method at `scope="session"`.
     #
-    global _Singleton_instances
-    for cls in _Singleton_instances:
-        cls._reset_Singleton(fully_unwrap=fully_unwrap)
+    global _singleton_instances
+    for cls in _singleton_instances:
+        cls._reset_singleton(fully_unwrap=fully_unwrap)

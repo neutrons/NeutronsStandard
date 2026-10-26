@@ -10,7 +10,7 @@ Node = namedtuple("Node", "dict key")
 
 # Implementation notes:
 # * In order to allow convenient usage within CIS-test scripts,
-# `Config_override` is deliberately _not_ implemented as a test fixture.
+# `config_override` is deliberately _not_ implemented as a test fixture.
 # * Multi-level substitution is not implemented: in general this can _effectively_ result in a
 # period-delimited key corresponding to values from _multiple_ `Config` nodes.
 # It's assumed that this does not pose much limitation, and that it should be possible
@@ -18,12 +18,12 @@ Node = namedtuple("Node", "dict key")
 
 
 @contextmanager
-def Config_override(key: str, value: Any):
+def config_override(key: str, value: Any):
     # Context manager to safely override a `Config` entry:
     # * `__enter__` returns the `Config` instance.
 
     # Find the _primary_ node associated with a period-delimited key.
-    def lookupNode(dict_: Dict[str, Any], key: str) -> Tuple[Dict[str, Any], str]:
+    def lookup_node(dict_: Dict[str, Any], key: str) -> Tuple[Dict[str, Any], str]:
         # key_1.key_2. ... key_(n-1) lookup
         ks = key.split(".")
         val = dict_
@@ -40,25 +40,25 @@ def Config_override(key: str, value: Any):
     # __enter__
     # test failing with exepction will pollute other tests with this config change if not caught up the stack
     try:
-        _savedNode: Tuple[Dict[str, Any], str] = lookupNode(Config._config, key)
-        _savedValue: Any = _savedNode.dict[_savedNode.key]
-        _savedNode.dict[_savedNode.key] = value
+        _saved_node: Tuple[Dict[str, Any], str] = lookup_node(Config._config, key)
+        _saved_value: Any = _saved_node.dict[_saved_node.key]
+        _saved_node.dict[_saved_node.key] = value
         yield Config
     finally:
         # __exit__
-        del _savedNode.dict[_savedNode.key]
-        if _savedValue is not None:
-            _savedNode.dict[_savedNode.key] = _savedValue
+        del _saved_node.dict[_saved_node.key]
+        if _saved_value is not None:
+            _saved_node.dict[_saved_node.key] = _saved_value
 
 
 @pytest.fixture
-def Config_override_fixture():
+def config_override_fixture():
     _stack = ExitStack()
 
-    def _Config_override_fixture(key: str, value: Any):
-        return _stack.enter_context(Config_override(key, value))
+    def _config_override_fixture(key: str, value: Any):
+        return _stack.enter_context(config_override(key, value))
 
-    yield _Config_override_fixture
+    yield _config_override_fixture
 
     # teardown => __exit__
     _stack.close()
