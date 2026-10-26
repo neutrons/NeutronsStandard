@@ -5,11 +5,13 @@ some:
     value: 42
 
 templated:
-  value: ${some.nested.value} is the answer to the Ultimate Question of Life, The Universe, and Everything.
+  value: >-
+    ${some.nested.value} is the answer to the Ultimate Question of Life,
+    The Universe, and Everything.
 
 user:
   application:
-      home: ~/.neutrons_standard
+    home: ~/.neutrons_standard
 
 test:
   multi-substitution:
