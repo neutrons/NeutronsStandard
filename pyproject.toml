@@ -193,7 +193,7 @@ conda-publish = { cmd = "anaconda upload *.conda", description = "Publish the .c
 # Misc
 # TODO (Glass): CVE-2026-115586 - virtualenv 21.14.12, via pre-commit 4.7.0 and hatch 1.18.1
 #               PYSEC-2026-4322 - brotli 1.2.0, via multiple dependencies (pip-audit, pre-commit, hatch, etc.)
-audit-deps = { cmd = "pip-audit --local -s osv --ignore-vuln CVE-2026-115586 PYSEC-2026-4322", description = "Audit the package dependencies for vulnerabilities" }
+audit-deps = { cmd = "pip-audit --local -s osv --ignore-vuln CVE-2026-115586 --ignore-vuln PYSEC-2026-4322", description = "Audit the package dependencies for vulnerabilities" }
 # Cleaning
 clean = { cmd = 'rm -rf .pytest_cache .ruff_cache **/*.egg-info **/dist **/__pycache__', description = "Clean up various caches and build artifacts" }
 clean-conda = { cmd = "rm -f *.conda", description = "Clean the local .conda build artifacts" }
