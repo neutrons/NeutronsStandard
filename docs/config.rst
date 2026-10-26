@@ -21,11 +21,11 @@ Quick Reference
     Config.getCurrentEnv()                       # Get current environment name
 
     # User config
-    Config.swapToUserYml()                       # Use ~/.{package_name}/{package_name}-user.yml
+    Config.swapToUserYml()                       # Use ~/.config/{package_name}/{package_name}-user.yml
     Config.shouldSwapToUserYml()                 # Check if user config available
 
     # Backup
-    Config.persistBackup()                       # Backup to ~/.{package_name}/application.yml.bak
+    Config.persistBackup()                       # Backup to ~/.config/{package_name}/application.yml.bak
     Config.archiveUserYml()                      # Archive versioned user config
 
 Dot-Delimited Lookup
@@ -99,21 +99,31 @@ Specify environment via:
 
 - Environment variable: ``env=environment_name``
 - YAML property: ``environment: environment_name``
-- Auto-detect user config: ``~/.{package_name}/{package_name}-user.yml``
+- Auto-detect user config: ``~/.config/{package_name}/{package_name}-user.yml``
 
 User Configuration Management
 -----------------------------
 
-User config (``~/.{package_name}/{package_name}-user.yml``) auto-loads if present, no explicit ``env`` is specified, and this is not a test run. If its ``application.version`` does not match the installed version, it is archived and regenerated from ``application.yml``, replacing any hand edits. Only the newest 5 archives are kept (``_Config._user_yml_archive_limit``).
+User config (``~/.config/{package_name}/{package_name}-user.yml``) auto-loads if present, no explicit ``env`` is specified, and this is not a test run. If its ``application.version`` does not match the installed version, it is archived and regenerated from ``application.yml``, replacing any hand edits. Only the newest ``application.userYmlArchiveLimit`` archives are kept: 5 by default, ``-1`` keeps all of them (unlimited), and ``0`` keeps none. Set it in ``application.yml`` or an environment file:
+
+.. code-block:: yaml
+
+    application:
+      userYmlArchiveLimit: 5    # -1: unlimited, 0: keep none
+
+Any other value logs a warning, and the default is used.
+
+Older releases kept these files in ``~/.{package_name}/``. If ``~/.config/{package_name}/`` doesn't exist yet,
+``~/.{package_name}/`` is moved there the first time it is needed, and a warning is logged.
 
 Configuration Backup
 --------------------
 
-Backups are created automatically: ``application.yml.bak`` (the full merged config) on every ``Config.reload()``, and a versioned ``-user`` archive before an out-of-date user config is regenerated (newest 5 kept):
+Backups are created automatically: ``application.yml.bak`` (the full merged config) on every ``Config.reload()``, and a versioned ``-user`` archive before an out-of-date user config is regenerated (newest ``application.userYmlArchiveLimit`` kept):
 
 .. code-block:: text
 
-    ~/.{package_name}/
+    ~/.config/{package_name}/
     ├── application.yml.bak                          # Latest backup
     └── {package_name}-user-1.0.0-2026-03-04T16:10:34.817Z.yml.bak  # Versioned
 
@@ -126,11 +136,26 @@ Auto-select environment based on app version:
 
     Config.configureForDeploy()
 
-- Contains ``dev`` → NEXT environment
-- Contains ``rc`` → QA environment
-- Otherwise → PROD environment
+- Contains ``dev`` → NEXT environment (``{package_name}_next``)
+- Contains ``rc`` → QA environment (``{package_name}_qa``)
+- Otherwise → PROD environment (``{package_name}_prod``)
 
 Merges and exports to ``application.yml``.
+
+The deployments are the members of ``DeployEnvEnum``, whose values are ``next``, ``qa`` and ``prod``. Use
+``envName()`` for the client's environment name:
+
+.. code-block:: python
+
+    from neutrons_standard.config import DeployEnvEnum
+
+    DeployEnvEnum.NEXT                # "next"
+    DeployEnvEnum.NEXT.envName()      # "{package_name}_next"
+    Config.loadEnv(DeployEnvEnum.QA.envName())
+
+Before this release the values were the environment names themselves (``DeployEnvEnum.NEXT == "{package_name}_next"``):
+code that passes a member as an environment name, such as ``Config.loadEnv(DeployEnvEnum.QA)``, must call
+``envName()``.
 
 Directory Path Expansion
 ------------------------
@@ -145,7 +170,8 @@ including values produced by ``${...}`` substitution. The stored config (and fil
     output:
       dir: ${data.home}/output   # Config["output.dir"] == "/home/user/data/output"
 
-``~user`` forms and a ``~`` anywhere other than the start of the value are left unchanged.
+``~user`` expands to that user's home directory. If the user doesn't exist, a warning is logged once and the value is
+used as written. A ``~`` anywhere other than the start of the value is left unchanged.
 
 Error Handling
 --------------

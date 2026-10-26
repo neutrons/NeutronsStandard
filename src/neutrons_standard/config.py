@@ -72,11 +72,23 @@ def merge_dicts(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
     return d1
 
 
+# `~user` values whose user doesn't exist, so the warning is logged once rather than on every read
+_unknownHomes: set[str] = set()
+
+
 def _expandHome(value: Any) -> Any:
-    """Expand a leading `~` in a string value to the user's home directory."""
-    if isinstance(value, str) and (value == "~" or value.startswith("~/")):
-        return os.path.expanduser(value)
-    return value
+    """Expand a leading `~` or `~user` in a string value to that user's home directory."""
+    if not isinstance(value, str) or not re.match(r"~[^/]*(/|$)", value):
+        return value
+    expanded = os.path.expanduser(value)
+    # `expanduser` returns the value unchanged when the user's home directory can't be found
+    if expanded == value and value not in _unknownHomes:
+        _unknownHomes.add(value)
+        user = value[1:].split("/", 1)[0]
+        logging.getLogger(__name__ + ".Config").warning(
+            f"Unable to expand '{value}': no home directory found for user '{user}'. The value is used as written"
+        )
+    return expanded
 
 
 @Singleton
@@ -154,7 +166,7 @@ class _Config:
     _logger = logging.getLogger(__name__ + ".Config")
     _property_change_warnings: Dict[str, str] = {}
     _default_env: str = "application.yml"
-    # the number of archived `-user.yml` files to keep: older archives are deleted
+    # the default number of archived `-user.yml` files to keep, if `application.userYmlArchiveLimit` isn't set
     _user_yml_archive_limit: int = 5
 
     def __init__(self) -> None:
@@ -269,23 +281,58 @@ class _Config:
             shutil.copy(str(userHome / f"{Spec.client_package_name}-user.yml"), str(archivePath))
             self._pruneUserYmlArchives()
 
+    def _userYmlArchiveLimit(self) -> int | None:
+        """The number of archived user configs to keep: None keeps all of them."""
+        application = self._config.get("application")
+        limit = application.get("userYmlArchiveLimit") if isinstance(application, dict) else None
+        if limit is None:
+            return self._user_yml_archive_limit
+        if limit == -1:
+            return None
+        # a YAML boolean is a Python `int`: it is not a number of archives
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+            self._logger.warning(
+                f"Invalid `application.userYmlArchiveLimit: {limit!r}`: it must be a number of archives, or -1 for "
+                f"no limit. Keeping {self._user_yml_archive_limit} archives"
+            )
+            return self._user_yml_archive_limit
+        return limit
+
     def _pruneUserYmlArchives(self) -> None:
-        """Delete all but the newest `_user_yml_archive_limit` archived user configs."""
+        """Delete all but the newest `application.userYmlArchiveLimit` archived user configs."""
+        limit = self._userYmlArchiveLimit()
+        if limit is None:
+            return
         archives = sorted(
             self._userHome().glob(f"{Spec.client_package_name}-user-*.yml.bak"),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
-        for archive in archives[self._user_yml_archive_limit :]:
+        for archive in archives[limit:]:
             self._logger.debug(f"Removing old user configuration archive: {archive}")
             archive.unlink()
 
-    @staticmethod
-    def _userHome() -> Path:
-        return Path.home() / f".{Spec.client_package_name}"
+    @classmethod
+    def _userHome(cls) -> Path:
+        """The directory of the user's config, archives and backup: `~/.config/<package>`."""
+        userHome = Path.home() / ".config" / Spec.client_package_name
+        # older releases used `~/.<package>`: its files are moved once, so the user's config keeps being used
+        legacyHome = Path.home() / f".{Spec.client_package_name}"
+        if not userHome.exists() and legacyHome.is_dir():
+            try:
+                userHome.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(legacyHome), str(userHome))
+            except OSError as e:
+                cls._logger.warning(f"Unable to move the user configuration from {legacyHome} to {userHome}: {e}")
+                return legacyHome
+            cls._logger.warning(f"Moved the user configuration from {legacyHome} to {userHome}")
+        return userHome
 
-    def packageVersion(self) -> str:
-        """Get the version of the client package."""
+    ###################################################################################
+    ### Versioning methods
+
+    def _getVersionFromMetadata(self) -> str:
+        version = None
         try:
             version = metadata.version(Spec.client_package_name)
         except metadata.PackageNotFoundError:
@@ -293,21 +340,41 @@ class _Config:
         if version:
             return version
 
-        # not installed: fall back to the commit hash of the client's source checkout
+    def _getVersionFromGit(self) -> str:
+        version = None
         try:
-            label = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=Path(sys.modules[Spec.client_package_name].__file__).parent,
-                stderr=subprocess.DEVNULL,
-            ).strip()
+            version = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=Path(sys.modules[Spec.client_package_name].__file__).parent,
+                    stderr=subprocess.DEVNULL,
+                )
+                .strip()
+                .decode("utf-8")
+            )
         except (OSError, subprocess.CalledProcessError):
-            label = b""
-        if label:
-            return label.decode("utf-8")
+            pass
+        return version
+
+    def _raiseNoVersionError(self):
         raise ValueError(
             f"The {Spec.client_package_name} Version is not set correctly. "
             f"Please ensure that the {Spec.client_package_name} package is installed correctly."
         )
+
+    def packageVersion(self) -> str:
+        """Get the version of the client package."""
+        versionSources = [self._getVersionFromMetadata, self._getVersionFromGit, self._raiseNoVersionError]
+        version = None
+
+        for versionSource in versionSources:
+            version = versionSource()
+            if version:
+                break
+
+        return version
+
+    ###################################################################################
 
     def getUserYmlVersionDisk(self) -> str | None:
         """Get the associated app version the user config was generated with."""
