@@ -337,8 +337,7 @@ class _Config:
             version = metadata.version(Spec.client_package_name)
         except metadata.PackageNotFoundError:
             version = None
-        if version:
-            return version
+        return version
 
     def _getVersionFromGit(self) -> str:
         version = None
