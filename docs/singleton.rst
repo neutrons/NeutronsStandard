@@ -9,7 +9,7 @@ Quick Reference
 
 .. code-block:: python
 
-    from neutrons_standard.decorators.singleton import Singleton, reset_Singletons
+    from neutrons_standard.decorators.singleton import Singleton, reset_singletons
 
     @Singleton
     class MyService:
@@ -22,9 +22,9 @@ Quick Reference
     assert s1 is s2  # True
 
     # Testing: reset before each test
-    MyService._reset_Singleton()                 # Reset one singleton
-    reset_Singletons()                           # Reset all singletons
-    reset_Singletons(fully_unwrap=True)          # Remove decorator behavior
+    MyService._reset_singleton()                 # Reset one singleton
+    reset_singletons()                           # Reset all singletons
+    reset_singletons(fully_unwrap=True)          # Remove decorator behavior
 
 Basic Usage
 -----------
@@ -89,17 +89,17 @@ Reset individual singleton (allows re-initialization):
 
 .. code-block:: python
 
-    MyClass._reset_Singleton()              # Next call creates new instance
-    MyClass._reset_Singleton(fully_unwrap=True)  # Remove Singleton behavior
+    MyClass._reset_singleton()              # Next call creates new instance
+    MyClass._reset_singleton(fully_unwrap=True)  # Remove Singleton behavior
 
 Reset all singletons:
 
 .. code-block:: python
 
-    from neutrons_standard.decorators.singleton import reset_Singletons
+    from neutrons_standard.decorators.singleton import reset_singletons
 
-    reset_Singletons()                      # Reset all
-    reset_Singletons(fully_unwrap=True)     # Fully unwrap all
+    reset_singletons()                      # Reset all
+    reset_singletons(fully_unwrap=True)     # Fully unwrap all
 
 Examples
 ========
@@ -110,14 +110,14 @@ Pytest Fixture
 .. code-block:: python
 
     import pytest
-    from neutrons_standard.decorators.singleton import reset_Singletons
+    from neutrons_standard.decorators.singleton import reset_singletons
 
     @pytest.fixture(autouse=True)
     def reset_all_singletons():
         """Fresh instance for each test."""
-        reset_Singletons()
+        reset_singletons()
         yield
-        reset_Singletons()
+        reset_singletons()
 
     def test_one():
         obj1 = MyClass()
@@ -135,10 +135,10 @@ Selective Reset
     @pytest.fixture
     def fresh_database():
         """Fresh database instance."""
-        DatabaseConnection._reset_Singleton()
+        DatabaseConnection._reset_singleton()
         db = DatabaseConnection()
         yield db
-        DatabaseConnection._reset_Singleton()
+        DatabaseConnection._reset_singleton()
 
     def test_with_fresh_db(fresh_database):
         # fresh_database is guaranteed new instance

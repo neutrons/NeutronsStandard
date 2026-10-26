@@ -6,4 +6,4 @@ class TestIntegrationTest(IntegrationTest):
     def test_init(self):
         assert self.test_summary is None
         self.test_summary = TestSummary.builder().step("Initialize Step!").build()
-        self.test_summary.SUCCESS()
+        self.test_summary.success()

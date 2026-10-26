@@ -6,40 +6,40 @@ class TestSummary:
         self._index = 0
         self._steps = []
 
-    def SUCCESS(self):
+    def success(self):
         step = self._steps[self._index]
         step.status = self.TestStep.StepStatus.SUCCESS
         self._index += 1
 
-    def FAILURE(self):
+    def failure(self):
         step = self._steps[self._index]
         step.status = self.TestStep.StepStatus.FAILURE
         self._index += 1
 
-    def SKIPPED(self):
+    def skipped(self):
         step = self._steps[self._index]
         step.status = self.TestStep.StepStatus.SKIPPED
         self._index += 1
 
-    def isComplete(self):
+    def is_complete(self):
         return self._index == len(self._steps)
 
-    def isFailure(self):
+    def is_failure(self):
         return any(step.status == self.TestStep.StepStatus.FAILURE for step in self._steps)
 
     def builder():
         return TestSummary.TestSummaryBuilder()
 
     def __str__(self):
-        longestStatus = max(len(step.status) for step in self._steps)
-        longestName = max(len(step.name) for step in self._steps)
-        tableCapStr = "#" * (longestName + longestStatus + 6)
-        tableStr = (
-            f"\n{tableCapStr}\n"
-            + "\n".join(f"# {step.name:{longestName}}: {step.status:{longestStatus}} #" for step in self._steps)
-            + f"\n{tableCapStr}\n"
+        longest_status = max(len(step.status) for step in self._steps)
+        longest_name = max(len(step.name) for step in self._steps)
+        table_cap_str = "#" * (longest_name + longest_status + 6)
+        table_str = (
+            f"\n{table_cap_str}\n"
+            + "\n".join(f"# {step.name:{longest_name}}: {step.status:{longest_status}} #" for step in self._steps)
+            + f"\n{table_cap_str}\n"
         )
-        return tableStr
+        return table_str
 
     class TestStep:
         class StepStatus(StrEnum):

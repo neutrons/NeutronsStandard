@@ -16,17 +16,17 @@ Quick Reference
     Config.exists("optional.key")                # Check if key exists
 
     # Environment management
-    Config.loadEnv("production.yml")             # Load environment config
+    Config.load_env("production.yml")            # Load environment config
     Config.reload(env_name="qa.yml")             # Reload with environment
-    Config.getCurrentEnv()                       # Get current environment name
+    Config.get_current_env()                     # Get current environment name
 
     # User config
-    Config.swapToUserYml()                       # Use ~/.config/{package_name}/{package_name}-user.yml
-    Config.shouldSwapToUserYml()                 # Check if user config available
+    Config.swap_to_user_yml()                    # Use ~/.config/{package_name}/{package_name}-user.yml
+    Config.should_swap_to_user_yml()             # Check if user config available
 
     # Backup
-    Config.persistBackup()                       # Backup to ~/.config/{package_name}/application.yml.bak
-    Config.archiveUserYml()                      # Archive versioned user config
+    Config.persist_backup()                      # Backup to ~/.config/{package_name}/application.yml.bak
+    Config.archive_user_yml()                    # Archive versioned user config
 
 Dot-Delimited Lookup
 --------------------
@@ -104,12 +104,12 @@ Specify environment via:
 User Configuration Management
 -----------------------------
 
-User config (``~/.config/{package_name}/{package_name}-user.yml``) auto-loads if present, no explicit ``env`` is specified, and this is not a test run. If its ``application.version`` does not match the installed version, it is archived and regenerated from ``application.yml``, replacing any hand edits. Only the newest ``application.userYmlArchiveLimit`` archives are kept: 5 by default, ``-1`` keeps all of them (unlimited), and ``0`` keeps none. Set it in ``application.yml`` or an environment file:
+User config (``~/.config/{package_name}/{package_name}-user.yml``) auto-loads if present, no explicit ``env`` is specified, and this is not a test run. If its ``application.version`` does not match the installed version, it is archived and regenerated from ``application.yml``, replacing any hand edits. Only the newest ``application.user_yml_archive_limit`` archives are kept: 5 by default, ``-1`` keeps all of them (unlimited), and ``0`` keeps none. Set it in ``application.yml`` or an environment file:
 
 .. code-block:: yaml
 
     application:
-      userYmlArchiveLimit: 5    # -1: unlimited, 0: keep none
+      user_yml_archive_limit: 5  # -1: unlimited, 0: keep none
 
 Any other value logs a warning, and the default is used.
 
@@ -119,7 +119,7 @@ Older releases kept these files in ``~/.{package_name}/``. If ``~/.config/{packa
 Configuration Backup
 --------------------
 
-Backups are created automatically: ``application.yml.bak`` (the full merged config) on every ``Config.reload()``, and a versioned ``-user`` archive before an out-of-date user config is regenerated (newest ``application.userYmlArchiveLimit`` kept):
+Backups are created automatically: ``application.yml.bak`` (the full merged config) on every ``Config.reload()``, and a versioned ``-user`` archive before an out-of-date user config is regenerated (newest ``application.user_yml_archive_limit`` kept):
 
 .. code-block:: text
 
@@ -134,7 +134,7 @@ Auto-select environment based on app version:
 
 .. code-block:: python
 
-    Config.configureForDeploy()
+    Config.configure_for_deploy()
 
 - Contains ``dev`` → NEXT environment (``{package_name}_next``)
 - Contains ``rc`` → QA environment (``{package_name}_qa``)
@@ -143,19 +143,19 @@ Auto-select environment based on app version:
 Merges and exports to ``application.yml``.
 
 The deployments are the members of ``DeployEnvEnum``, whose values are ``next``, ``qa`` and ``prod``. Use
-``envName()`` for the client's environment name:
+``env_name()`` for the client's environment name:
 
 .. code-block:: python
 
     from neutrons_standard.config import DeployEnvEnum
 
     DeployEnvEnum.NEXT                # "next"
-    DeployEnvEnum.NEXT.envName()      # "{package_name}_next"
-    Config.loadEnv(DeployEnvEnum.QA.envName())
+    DeployEnvEnum.NEXT.env_name()     # "{package_name}_next"
+    Config.load_env(DeployEnvEnum.QA.env_name())
 
 Before this release the values were the environment names themselves (``DeployEnvEnum.NEXT == "{package_name}_next"``):
-code that passes a member as an environment name, such as ``Config.loadEnv(DeployEnvEnum.QA)``, must call
-``envName()``.
+code that passes a member as an environment name, such as ``Config.load_env(DeployEnvEnum.QA)``, must call
+``env_name()``.
 
 Directory Path Expansion
 ------------------------
@@ -181,7 +181,7 @@ Failed config loading automatically restores previous state:
 .. code-block:: python
 
     try:
-        Config.loadEnv("invalid.yml")  # Fails, restores previous
+        Config.load_env("invalid.yml")  # Fails, restores previous
     except Exception:
         pass  # Config unchanged
 
@@ -208,7 +208,7 @@ Basic Usage
         feature_dir = Config["optional.feature"]
 
     # Switch environment
-    Config.loadEnv("production.yml")
+    Config.load_env("production.yml")
     prod_host = Config["database.host"]
 
 Configuration File Example

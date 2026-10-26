@@ -18,7 +18,7 @@ from ruamel.yaml import YAML as rYAML  # noqa: N811
 
 from neutrons_standard import Spec
 from neutrons_standard.decorators.singleton import Singleton
-from neutrons_standard.time import isoFromTimestamp, timestamp
+from neutrons_standard.time import iso_from_timestamp, timestamp
 
 
 class DeployEnvEnum(StrEnum):
@@ -28,12 +28,12 @@ class DeployEnvEnum(StrEnum):
     QA = "qa"
     PROD = "prod"
 
-    def envName(self) -> str:
+    def env_name(self) -> str:
         """Get the client's environment name for this deployment, e.g. `<package>_next`."""
         return f"{Spec.client_package_name}_{self.value}"
 
 
-def isTestEnv() -> bool:
+def is_test_env() -> bool:
     """
     Check if the current environment is a test environment.
 
@@ -48,17 +48,17 @@ def _find_root_dir() -> str:
     """Find the root directory of the client module."""
     package_name = Spec.client_package_name
     try:
-        MODULE_ROOT = Path(sys.modules[package_name].__file__).parent
+        module_root = Path(sys.modules[package_name].__file__).parent
 
         # Using `"test" in env` here allows different versions of "[category]_test.yml" to be used for different
         #  test categories: e.g. unit tests use "test.yml" but integration tests use "integration_test.yml".
-        if isTestEnv():
+        if is_test_env():
             # WARNING: there are now multiple "conftest.py" at various levels in the test hierarchy.
-            MODULE_ROOT = MODULE_ROOT.parent.parent / "tests"
+            module_root = module_root.parent.parent / "tests"
     except Exception as e:
         raise RuntimeError(f"Unable to determine {package_name} module-root directory") from e
 
-    return str(MODULE_ROOT)
+    return str(module_root)
 
 
 # update config with self._config, deep_update does not work with ruamel.yaml
@@ -73,17 +73,17 @@ def merge_dicts(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # `~user` values whose user doesn't exist, so the warning is logged once rather than on every read
-_unknownHomes: set[str] = set()
+_unknown_homes: set[str] = set()
 
 
-def _expandHome(value: Any) -> Any:
+def _expand_home(value: Any) -> Any:
     """Expand a leading `~` or `~user` in a string value to that user's home directory."""
     if not isinstance(value, str) or not re.match(r"~[^/]*(/|$)", value):
         return value
     expanded = os.path.expanduser(value)
     # `expanduser` returns the value unchanged when the user's home directory can't be found
-    if expanded == value and value not in _unknownHomes:
-        _unknownHomes.add(value)
+    if expanded == value and value not in _unknown_homes:
+        _unknown_homes.add(value)
         user = value[1:].split("/", 1)[0]
         logging.getLogger(__name__ + ".Config").warning(
             f"Unable to expand '{value}': no home directory found for user '{user}'. The value is used as written"
@@ -102,7 +102,7 @@ class _Resource:
     def __init__(self) -> None:
         """Initialize the resource manager."""
         # where the location of resources are depends on whether or not this is in package mode
-        self._package_mode = not self._existsInPackage("application.yml")
+        self._package_mode = not self._exists_in_package("application.yml")
         if self._package_mode:
             self._logger.debug("In package mode")
             self._resources_path = "/resources/"
@@ -110,7 +110,7 @@ class _Resource:
             self._logger.debug("Not in package mode")
             self._resources_path = os.path.join(_find_root_dir(), "resources/")
 
-    def _existsInPackage(self, sub_path: str) -> bool:
+    def _exists_in_package(self, sub_path: str) -> bool:
         """Check if a resource exists in the package."""
         with resources.path(f"{Spec.client_package_name}.resources", sub_path) as path:
             return os.path.exists(path)
@@ -118,11 +118,11 @@ class _Resource:
     def exists(self, sub_path: str) -> bool:
         """Check if a resource exists."""
         if self._package_mode:
-            return self._existsInPackage(sub_path)
+            return self._exists_in_package(sub_path)
         else:
-            return os.path.exists(self.getPath(sub_path))
+            return os.path.exists(self.get_path(sub_path))
 
-    def getPath(self, sub_path: str) -> str:
+    def get_path(self, sub_path: str) -> str:
         """Get the path to a resource."""
         if sub_path.startswith("/"):
             return os.path.join(self._resources_path, sub_path[1:])
@@ -140,7 +140,7 @@ class _Resource:
             with resources.path(f"{Spec.client_package_name}.resources", sub_path) as path:
                 return open(path, mode)
         else:
-            return open(self.getPath(sub_path), mode)
+            return open(self.get_path(sub_path), mode)
 
 
 Resource = _Resource()
@@ -166,8 +166,8 @@ class _Config:
     _logger = logging.getLogger(__name__ + ".Config")
     _property_change_warnings: Dict[str, str] = {}
     _default_env: str = "application.yml"
-    # the default number of archived `-user.yml` files to keep, if `application.userYmlArchiveLimit` isn't set
-    _user_yml_archive_limit: int = 5
+    # the default number of archived `-user.yml` files to keep, if `application.user_yml_archive_limit` isn't set
+    _default_user_yml_archive_limit: int = 5
 
     def __init__(self) -> None:
         self._property_change_warnings = {
@@ -179,29 +179,29 @@ class _Config:
 
         self.reload()
         # if -user.yml exists, then load it by default
-        if self.shouldSwapToUserYml():
+        if self.should_swap_to_user_yml():
             self._logger.info("Found user configuration file, swapping to it")
-            self.swapToUserYml()
+            self.swap_to_user_yml()
 
-    def shouldSwapToUserYml(self) -> bool:
+    def should_swap_to_user_yml(self) -> bool:
         """Check if the app should use a user config."""
-        isExplicitEnv = "env" in os.environ
-        isUserYmlExists = (self._userHome() / f"{Spec.client_package_name}-user.yml").exists()
-        return isUserYmlExists and not isExplicitEnv and not isTestEnv()
+        is_explicit_env = "env" in os.environ
+        is_user_yml_exists = (self._user_home() / f"{Spec.client_package_name}-user.yml").exists()
+        return is_user_yml_exists and not is_explicit_env and not is_test_env()
 
-    def configureForDeploy(self) -> None:
-        version = self.packageVersion()
+    def configure_for_deploy(self) -> None:
+        version = self.package_version()
         if "dev" in version:
-            self.mergeAndExport(DeployEnvEnum.NEXT.envName())
+            self.merge_and_export(DeployEnvEnum.NEXT.env_name())
         elif "rc" in version:
-            self.mergeAndExport(DeployEnvEnum.QA.envName())
+            self.merge_and_export(DeployEnvEnum.QA.env_name())
         else:
-            self.mergeAndExport(DeployEnvEnum.PROD.envName())
+            self.merge_and_export(DeployEnvEnum.PROD.env_name())
 
-    def mergeAndExport(self, envName: str) -> None:
+    def merge_and_export(self, env_name: str) -> None:
         """Merge/export the current configuration with the specified environment configuration."""
-        self._logger.debug(f"Merging/exporting configuration with environment: {envName}")
-        self.refresh(envName, False)
+        self._logger.debug(f"Merging/exporting configuration with environment: {env_name}")
+        self.refresh(env_name, False)
 
         ryaml = rYAML()
         ryaml.default_flow_style = False
@@ -232,10 +232,10 @@ class _Config:
 
         # ---------- end: internal values: -----------------------------
 
-        watchedProperties = {}
+        watched_properties = {}
         for key in self._property_change_warnings:
             if self.exists(key):
-                watchedProperties[key] = self[key]
+                watched_properties[key] = self[key]
 
         # see if user used environment injection to modify what is needed
         # this will get from the os environment or from the currently loaded one
@@ -248,63 +248,63 @@ class _Config:
             self.refresh(self.env)
         else:
             self._logger.info("No environment config specified, using default")
-        self.warnSensitiveProperties(watchedProperties)
-        self.persistBackup()
+        self.warn_sensitive_properties(watched_properties)
+        self.persist_backup()
 
-    def persistBackup(self) -> None:
-        self._userHome().mkdir(parents=True, exist_ok=True)
-        backupFile = self._userHome() / "application.yml.bak"
-        with open(backupFile, "w") as file:
+    def persist_backup(self) -> None:
+        self._user_home().mkdir(parents=True, exist_ok=True)
+        backup_file = self._user_home() / "application.yml.bak"
+        with open(backup_file, "w") as file:
             yaml.dump(self._config, file, default_flow_style=False)
-        self._logger.info(f"Backup of application.yml created at {backupFile.absolute()}")
+        self._logger.info(f"Backup of application.yml created at {backup_file.absolute()}")
 
-    def loadEnv(self, env_name: str) -> None:
+    def load_env(self, env_name: str) -> None:
         # load the new environment
         self.reload(env_name)
 
     @staticmethod
     def _timestamp() -> str:
-        return isoFromTimestamp(timestamp())
+        return iso_from_timestamp(timestamp())
 
-    def archiveUserYml(self) -> None:
+    def archive_user_yml(self) -> None:
         """Archive the user config for safe keeping."""
         # check if -user.yml exists
-        userHome = self._userHome()
-        if (userHome / f"{Spec.client_package_name}-user.yml").exists():
-            version = self.getUserYmlVersionDisk()
+        user_home = self._user_home()
+        if (user_home / f"{Spec.client_package_name}-user.yml").exists():
+            version = self.get_user_yml_version_disk()
 
             # generate human readable timestamp
             timestamp = self._timestamp()
 
             # archive the old -user.yml
-            archivePath = userHome / f"{Spec.client_package_name}-user-{version}-{timestamp}.yml.bak"
-            shutil.copy(str(userHome / f"{Spec.client_package_name}-user.yml"), str(archivePath))
-            self._pruneUserYmlArchives()
+            archive_path = user_home / f"{Spec.client_package_name}-user-{version}-{timestamp}.yml.bak"
+            shutil.copy(str(user_home / f"{Spec.client_package_name}-user.yml"), str(archive_path))
+            self._prune_user_yml_archives()
 
-    def _userYmlArchiveLimit(self) -> int | None:
+    def _user_yml_archive_limit(self) -> int | None:
         """The number of archived user configs to keep: None keeps all of them."""
         application = self._config.get("application")
-        limit = application.get("userYmlArchiveLimit") if isinstance(application, dict) else None
+        limit = application.get("user_yml_archive_limit") if isinstance(application, dict) else None
         if limit is None:
-            return self._user_yml_archive_limit
+            return self._default_user_yml_archive_limit
         if limit == -1:
             return None
         # a YAML boolean is a Python `int`: it is not a number of archives
         if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
             self._logger.warning(
-                f"Invalid `application.userYmlArchiveLimit: {limit!r}`: it must be a number of archives, or -1 for "
-                f"no limit. Keeping {self._user_yml_archive_limit} archives"
+                f"Invalid `application.user_yml_archive_limit: {limit!r}`: it must be a number of archives, or -1 for "
+                f"no limit. Keeping {self._default_user_yml_archive_limit} archives"
             )
-            return self._user_yml_archive_limit
+            return self._default_user_yml_archive_limit
         return limit
 
-    def _pruneUserYmlArchives(self) -> None:
-        """Delete all but the newest `application.userYmlArchiveLimit` archived user configs."""
-        limit = self._userYmlArchiveLimit()
+    def _prune_user_yml_archives(self) -> None:
+        """Delete all but the newest `application.user_yml_archive_limit` archived user configs."""
+        limit = self._user_yml_archive_limit()
         if limit is None:
             return
         archives = sorted(
-            self._userHome().glob(f"{Spec.client_package_name}-user-*.yml.bak"),
+            self._user_home().glob(f"{Spec.client_package_name}-user-*.yml.bak"),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
@@ -313,25 +313,25 @@ class _Config:
             archive.unlink()
 
     @classmethod
-    def _userHome(cls) -> Path:
+    def _user_home(cls) -> Path:
         """The directory of the user's config, archives and backup: `~/.config/<package>`."""
-        userHome = Path.home() / ".config" / Spec.client_package_name
+        user_home = Path.home() / ".config" / Spec.client_package_name
         # older releases used `~/.<package>`: its files are moved once, so the user's config keeps being used
-        legacyHome = Path.home() / f".{Spec.client_package_name}"
-        if not userHome.exists() and legacyHome.is_dir():
+        legacy_home = Path.home() / f".{Spec.client_package_name}"
+        if not user_home.exists() and legacy_home.is_dir():
             try:
-                userHome.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(legacyHome), str(userHome))
+                user_home.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(legacy_home), str(user_home))
             except OSError as e:
-                cls._logger.warning(f"Unable to move the user configuration from {legacyHome} to {userHome}: {e}")
-                return legacyHome
-            cls._logger.warning(f"Moved the user configuration from {legacyHome} to {userHome}")
-        return userHome
+                cls._logger.warning(f"Unable to move the user configuration from {legacy_home} to {user_home}: {e}")
+                return legacy_home
+            cls._logger.warning(f"Moved the user configuration from {legacy_home} to {user_home}")
+        return user_home
 
     ###################################################################################
     ### Versioning methods
 
-    def _getVersionFromMetadata(self) -> str:
+    def _get_version_from_metadata(self) -> str:
         version = None
         try:
             version = metadata.version(Spec.client_package_name)
@@ -339,7 +339,7 @@ class _Config:
             version = None
         return version
 
-    def _getVersionFromGit(self) -> str:
+    def _get_version_from_git(self) -> str:
         version = None
         try:
             version = (
@@ -355,19 +355,19 @@ class _Config:
             pass
         return version
 
-    def _raiseNoVersionError(self):
+    def _raise_no_version_error(self):
         raise ValueError(
             f"The {Spec.client_package_name} Version is not set correctly. "
             f"Please ensure that the {Spec.client_package_name} package is installed correctly."
         )
 
-    def packageVersion(self) -> str:
+    def package_version(self) -> str:
         """Get the version of the client package."""
-        versionSources = [self._getVersionFromMetadata, self._getVersionFromGit, self._raiseNoVersionError]
+        version_sources = [self._get_version_from_metadata, self._get_version_from_git, self._raise_no_version_error]
         version = None
 
-        for versionSource in versionSources:
-            version = versionSource()
+        for version_source in version_sources:
+            version = version_source()
             if version:
                 break
 
@@ -375,86 +375,86 @@ class _Config:
 
     ###################################################################################
 
-    def getUserYmlVersionDisk(self) -> str | None:
+    def get_user_yml_version_disk(self) -> str | None:
         """Get the associated app version the user config was generated with."""
         # check if -user.yml exists
-        userHome = self._userHome()
-        if (userHome / f"{Spec.client_package_name}-user.yml").exists():
-            with open(str(userHome / f"{Spec.client_package_name}-user.yml"), "r") as f:
-                applicationYml = rYAML(typ="safe").load(f)
-            version = applicationYml.get("application", {"version": None})["version"]
+        user_home = self._user_home()
+        if (user_home / f"{Spec.client_package_name}-user.yml").exists():
+            with open(str(user_home / f"{Spec.client_package_name}-user.yml"), "r") as f:
+                application_yml = rYAML(typ="safe").load(f)
+            version = application_yml.get("application", {"version": None})["version"]
             return version
         else:
             return None
 
-    def swapToUserYml(self) -> None:
+    def swap_to_user_yml(self) -> None:
         """Swap to user generated config."""
         # generate root directory for user configurations
-        userHome = self._userHome()
+        user_home = self._user_home()
 
         try:
-            if not userHome.exists():
-                userHome.mkdir(parents=True, exist_ok=True)
+            if not user_home.exists():
+                user_home.mkdir(parents=True, exist_ok=True)
 
             # check if -user.yml exists
-            if self.getUserYmlVersionDisk() != self.packageVersion():
+            if self.get_user_yml_version_disk() != self.package_version():
                 # if the version is not the same, then we need to archive the old one
-                if self.getUserYmlVersionDisk() is not None:
+                if self.get_user_yml_version_disk() is not None:
                     self._logger.warning(
                         "The user configuration file is out of date. A new configuration file will be generated."
                     )
                 # archive the old -user.yml
-                self.archiveUserYml()
+                self.archive_user_yml()
                 # generate a new valid -user.yml
-                self._generateUserYml()
+                self._generate_user_yml()
 
         except Exception as e:  # noqa: BLE001
             raise RuntimeError(
                 (
                     "Unable to swap to user configuration: "
-                    f"{userHome / f'{Spec.client_package_name}-user.yml'}"
+                    f"{user_home / f'{Spec.client_package_name}-user.yml'}"
                     "\nOriginal configuration maintained."
                 )
             ) from e
         else:
             # load the user yml file if the filesystem is ready
-            self.loadEnv(str(userHome / f"{Spec.client_package_name}-user.yml"))
+            self.load_env(str(user_home / f"{Spec.client_package_name}-user.yml"))
 
-    def _generateUserYml(self) -> None:
+    def _generate_user_yml(self) -> None:
         """Generate a default application config in the user's home dir."""
-        userHome = self._userHome()
+        user_home = self._user_home()
         # copy commented out application.yml as -user.yml
         # read the application.yml as a dict from resources
-        applicationYml = None
+        application_yml = None
         with Resource.open("application.yml", "r") as f:
-            applicationYml = rYAML(typ="safe").load(f)
+            application_yml = rYAML(typ="safe").load(f)
 
-        if applicationYml.get("application") is None:
-            applicationYml["application"] = {}
-        applicationYml["application"]["version"] = self.packageVersion()
-        applicationYml["environment"] = f"{Spec.client_package_name}-user"
+        if application_yml.get("application") is None:
+            application_yml["application"] = {}
+        application_yml["application"]["version"] = self.package_version()
+        application_yml["environment"] = f"{Spec.client_package_name}-user"
 
         # convert the dict back to a yaml string
-        applicationYmlStr = yaml.dump(applicationYml, default_flow_style=False)
+        application_yml_str = yaml.dump(application_yml, default_flow_style=False)
 
         # write the application.yml to the user home as -user.yml
-        with open(userHome / f"{Spec.client_package_name}-user.yml", "w") as f:
-            f.write(applicationYmlStr)
+        with open(user_home / f"{Spec.client_package_name}-user.yml", "w") as f:
+            f.write(application_yml_str)
 
-    def getCurrentEnv(self) -> str:
+    def get_current_env(self) -> str:
         if self.env is not None:
             return self.env
         else:
             # this is the default environment
             return "default"
 
-    def refresh(self, env_name: str, clearPrevious: bool = False) -> None:
+    def refresh(self, env_name: str, clear_previous: bool = False) -> None:
         """Load and refresh configuration from environment files."""
         # save a copy of previous config if it fails to load
-        prevConfig = copy.deepcopy(self._config)
+        prev_config = copy.deepcopy(self._config)
 
         try:
-            if clearPrevious:
+            if clear_previous:
                 self._config.clear()
 
             if env_name.endswith(".yml"):
@@ -466,39 +466,39 @@ class _Config:
                 if filepath.exists():
                     self._logger.debug(f"Loading config from {filepath.absolute()}")
                     with open(filepath, "r") as file:
-                        envConfig = rYAML(typ="safe").load(file)
+                        env_config = rYAML(typ="safe").load(file)
                 else:
                     # load from the resource
                     with Resource.open(env_name, "r") as file:
-                        envConfig = rYAML(typ="safe").load(file)
+                        env_config = rYAML(typ="safe").load(file)
                     new_env_name = env_name.replace(".yml", "")
                 # update the configuration with the  new environment
-                self._config = merge_dicts(self._config, envConfig)
+                self._config = merge_dicts(self._config, env_config)
 
                 # add the name to the config object if it wasn't specified
-                if "environment" not in envConfig:
+                if "environment" not in env_config:
                     self._config["environment"] = new_env_name
             else:
                 # recurse this function with a fuller name
-                self.refresh(f"{env_name}.yml", clearPrevious)
+                self.refresh(f"{env_name}.yml", clear_previous)
         except Exception:
             # if it fails, restore the previous config
             self._logger.warning(f"Failed to load {env_name}.yml, restoring previous config")
-            self._config = prevConfig
+            self._config = prev_config
             raise
 
-    def warnSensitiveProperties(self, watchedProperties: dict[str, Any]) -> None:
-        for key in watchedProperties:
+    def warn_sensitive_properties(self, watched_properties: dict[str, Any]) -> None:
+        for key in watched_properties:
             msg = self._property_change_warnings[key]
-            if watchedProperties[key] != self[key]:
-                warningBar = ("/" * 20) + " WARNING " + ("/" * 20)
-                self._logger.warning(warningBar)
+            if watched_properties[key] != self[key]:
+                warning_bar = ("/" * 20) + " WARNING " + ("/" * 20)
+                self._logger.warning(warning_bar)
                 self._logger.warning(f"Property '{key}' was changed in {self.env}.yml")
                 self._logger.warning(msg)
-                self._logger.warning(warningBar)
+                self._logger.warning(warning_bar)
 
     # method to regex for string pattern of ${key} and replace with value
-    def _replace(self, value: str, remainingKeys: list[str]) -> str:
+    def _replace(self, value: str, remaining_keys: list[str]) -> str:
         # if the value is not a string, then just return it
         if not isinstance(value, str):
             return value
@@ -507,7 +507,7 @@ class _Config:
         regex = r"\$\{([a-zA-Z0-9_\.]+)\}"
         matches = [match for match in re.finditer(regex, value, re.MULTILINE)]
         # replace all keys with their values
-        if len(remainingKeys) == 0:
+        if len(remaining_keys) == 0:
             for match in matches:
                 key = match.group()[2:-1]
                 if isinstance(self[key], dict):
@@ -515,18 +515,18 @@ class _Config:
                 value = value.replace(f"${{{key}}}", self[key])
         else:
             match = matches[0]
-            rootKey = match.group()[2:-1]
-            key = rootKey
+            root_key = match.group()[2:-1]
+            key = root_key
             val = self[key]
 
             # while val is a dict, keep appending keys
             while isinstance(val, dict):
-                key = key + f".{remainingKeys.pop(0)}"
+                key = key + f".{remaining_keys.pop(0)}"
                 val = self[key]
 
-            value = value.replace(f"${{{rootKey}}}", val)
-            # if(len(remainingKeys) > 0):
-            value = self._replace(value, remainingKeys)
+            value = value.replace(f"${{{root_key}}}", val)
+            # if(len(remaining_keys) > 0):
+            value = self._replace(value, remaining_keys)
 
         return value
 
@@ -537,17 +537,17 @@ class _Config:
     def _find(self, key: str) -> Any:
         keys = key.split(".")
         val = self._config.get(keys[0])
-        totalProcessed = 0
+        total_processed = 0
         for k in keys[1:]:
             if val is None:
                 break
             if isinstance(val, str):
                 break
-            totalProcessed += 1
+            total_processed += 1
             val = val.get(k)
 
         if val is not None:
-            val = self._replace(val, keys[1 + totalProcessed :])
+            val = self._replace(val, keys[1 + total_processed :])
         return val
 
     # period delimited key lookup
@@ -560,7 +560,7 @@ class _Config:
             # we need to solve the keys present in dict members
             # we can accomplish this by recursively calling __getitem__
             return {k: self[f"{key}.{k}"] for k in val}
-        return _expandHome(val)
+        return _expand_home(val)
 
     def validate(self) -> None:
         """Validate for conflicting property values."""
