@@ -4690,11 +4690,13 @@ packages:
   name: neutrons-standard
   requires_dist:
   - numpy>=2.2,<3
+  - pyyaml>=6.0
+  - ruamel-yaml>=0.18
   - myst-parser ; extra == 'docs'
   - sphinx ; extra == 'docs'
   - sphinx-rtd-theme ; extra == 'docs'
   - versioningit ; extra == 'docs'
-  requires_python: '>=3.10'
+  requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl
   name: jmespath
   version: 1.1.0
