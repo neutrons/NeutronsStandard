@@ -1,92 +1,116 @@
-# PythonCommons
+# Neutrons Standard
 
-Common software utilities and architecture tools for neutrons Python projects. This repository provides only reusable infrastructure components.
+[![documentation](https://img.shields.io/badge/-Documentation-purple?logo=read-the-docs&logoColor=white&style=for-the-badge)](https://pythoncommons.readthedocs.io/en/latest/)
+
+A set of common software utilities and architecture tools for neutrons Python projects.
+This repository provides only reusable infrastructure components.
 
 ## Purpose
 
 This package centralizes cross-cutting architectural concerns that are useful across multiple neutrons projects:
 
 - **Configuration Management** (`config.py`) - YAML-based configuration with environment layering and token substitution
-- **Singleton Pattern** (`singleton.py`) - Decorator for enforcing single-instance patterns
+- **Singleton Pattern** (`singleton.py`) - Decorator for enforcing consistent single-instance object patterns
 - **Time Utilities** (`time.py`) - High-precision timestamp generation and parsing
 - Other infrastructure utilities and design patterns
 
 Domain-specific scientific utilities should be implemented in project-specific repositories, not here.
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Development](#development)
+- [Testing](#testing)
+
 ## Quick Start
 
-### Install Pixi
+1. Add `neutrons_standard` as a dependency to your project:
 
-```bash
-curl -fsSL https://pixi.sh/install.sh | bash
-```
+   **Using `pip`**:
 
-### Set Up Environment
+   ```bash
+   pip install git+https://github.com/neutrons/NeutronsStandard.git
+   ```
 
-```bash
-pixi install
-```
+   or add it to your `pyproject.toml`:
 
-### Run Tests
+   ```toml
+   dependencies = [
+       "neutrons_standard @ git+https://github.com/neutrons/NeutronsStandard.git",
+   ]
+   ```
 
-```bash
-pixi run test
-```
+   **Using `pixi`**:
 
-## Using This Package
+   ```toml
+   [tool.pixi.workspace]
+   channels = [
+     "neutrons",
+     "conda-forge",
+     "https://prefix.dev/pixi-build-backends",
+   ]
 
-Add `PythonCommons` as a dependency to your project:
+   [tool.pixi.dependencies]
+   neutrons_standard = "*"
 
-```toml
-# In your pyproject.toml
-dependencies = [
-    "PythonCommons @ git+https://github.com/neutrons/PythonCommons.git",
-]
-```
+   [tool.pixi.package.run-dependencies]
+   neutrons_standard = "*"
+   ```
 
-or
+1. Initialize the package in your client code:
 
-```toml
-[tool.pixi.workspace]
-channels = [
-  "neutrons",
-  "conda-forge",
-  "https://prefix.dev/pixi-build-backends",
-]
+   ```python
+   # in your client package's main entry point or __init__.py
+   import neutrons_standard
 
-[tool.pixi.dependencies]
-neutrons_standard = "*"
+   neutrons_standard.init("your_client_package_name")
+   ```
 
-[tool.pixi.package.run-dependencies]
-neutrons_standard = "*"
-```
+   **NOTES**:
+   - The `init()` function must be called before any other `neutrons_standard` functionality is used, and only once per process.
+   - The `client_package_name` argument must be the importable name of your client package,
+     which is used for configuration file paths and environment variable names.
 
-Then import utilities:
+1. Then import utilities:
 
-```python
-from neutrons_standard import Config
-from neutrons_standard.decorators.singleton import Singleton
-from neutrons_standard.time import timestamp, iso_from_timestamp
-```
+   ```python
+   from neutrons_standard import Config
+   from neutrons_standard.decorators.singleton import Singleton
+   from neutrons_standard.time import timestamp, iso_from_timestamp
+   ```
 
-See [`readthedocs`](https://pythoncommons.readthedocs.io/en/latest/) for detailed documentation on each module.
+See [`readthedocs`](https://pythoncommons.readthedocs.io/en/latest/) for detailed usage and documentation.
 
 ## Development
+
+This package uses [pixi](https://pixi.prefix.dev/latest/#installation) for dependency management and development tasks.
+
+### Setup
+
+First, install pixi if needed, then clone the repository and install the package and its dependencies:
+
+```bash
+git clone https://github.com/neutrons/NeutronsStandard.git
+cd NeutronsStandard
+pixi install
+```
 
 ### Available Tasks
 
 ```bash
-pixi run         # List all tasks
-pixi run test    # Run tests
+pixi task list       # List all tasks
+
+# some common tasks:
+pixi run test        # Run tests
 pixi run build-docs  # Build documentation
 ```
 
 ### Development Workflow
 
 ```bash
-pixi shell                      # Activate environment
-python -m pytest tests/         # Run tests
-ruff check .                    # Lint code
+pixi shell               # Activate environment
+python -m pytest tests/  # Run tests
+ruff check .             # Lint code
 ```
 
 ## Testing
@@ -112,12 +136,12 @@ Output will be in `docs/_build/html/`.
 ## Project Structure
 
 ```
-PythonCommons/
-├── src/neutrons_standard/              # Main package
+NeutronsStandard/
+├── src/neutrons_standard/    # Main package
 │   ├── config.py             # Configuration management
 │   ├── time.py               # Time utilities
 │   └── decorators/
-│       └── singleton.py       # Singleton pattern decorator
+│       └── singleton.py      # Singleton pattern decorator
 ├── tests/                    # Test suite
 ├── docs/                     # Documentation (Sphinx)
 ├── pyproject.toml            # Project metadata and Pixi tasks
@@ -135,6 +159,5 @@ On SNS Analysis systems, `pixi run conda-build` may fail due to sqlite3 file loc
 When using pixi with editable self-dependencies and git-based versioning, there's a circular dependency issue. The solution uses pixi's `--skip` flag:
 
 ```bash
-pixi install --frozen --skip PythonCommons
-pip install --no-deps -e .
+pixi install --frozen --skip NeutronsStandard
 ```

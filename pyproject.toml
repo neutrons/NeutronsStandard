@@ -5,7 +5,7 @@
 name = "neutrons_standard"
 description = "Python library repo for atomic software components generally applicable across neutrons repositories."
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 keywords = ["neutrons", "common", "python", "library", "utils"]
 readme = "README.md"
@@ -13,6 +13,8 @@ readme = "README.md"
 dependencies = [
   # Dependencies available from both PyPI and conda should be listed here
   "numpy>=2.2,<3",
+  "pyyaml>=6.0",
+  "ruamel.yaml>=0.18",
 ]
 
 [project.optional-dependencies]
@@ -90,6 +92,7 @@ conda-pypi-map = { "conda-forge" = "pixi-mapping.json" }
 # Conda package dependencies
 python = "3.14.*"   # <3.15: pip-api 0.0.34 (via pip-audit) imports sre_constants, removed in 3.15
 numpy = "*"
+pyyaml = "*"
 "ruamel.yaml" = "*"
 # pip-audit
 h2 = ">=4.3.0"            # Known vulnerability in <4.3.0
@@ -112,8 +115,9 @@ hatchling = "*"
 versioningit = "*"
 
 [tool.pixi.package.run-dependencies]
-python = ">=3.10"
+python = ">=3.11"
 numpy = "*"
+pyyaml = "*"
 "ruamel.yaml" = "*"
 
 [tool.pixi.package]

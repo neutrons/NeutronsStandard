@@ -29,6 +29,10 @@ Spec: _Spec = _Spec()
 
 
 def init(client_package_name: str) -> None:
+    """Initialize the neutrons_standard package for use by a client package.
+
+    This must be called before any other `neutrons_standard` functionality is used, and only once per process.
+    """
     Spec.client_package_name = client_package_name
 
 
@@ -36,7 +40,12 @@ def __getattr__(name: str):  # noqa: ANN202
     # `Config` is loaded lazily: importing it here eagerly would run `config` before `Spec` is defined,
     #   and before the client has called `init(...)`.
     if name == "Config":
-        from neutrons_standard.config import Config
+        try:
+            from neutrons_standard.config import Config
+        except AttributeError as e:
+            # an `AttributeError` raised here is read by Python as "no attribute `Config`", which hides the real
+            #   failure behind `ImportError: cannot import name 'Config'`: raise it as an error that propagates
+            raise ImportError(f"Unable to load `neutrons_standard.config`: {e!r}") from e
 
         return Config
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

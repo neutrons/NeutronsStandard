@@ -61,6 +61,20 @@ def _find_root_dir() -> str:
     return str(module_root)
 
 
+def _load_yml(file: IO[Any], loader: rYAML | None = None) -> Dict[str, Any]:
+    """Load a YAML config file as a mapping: an empty file is an empty config."""
+    loader = loader if loader is not None else rYAML(typ="safe")
+    content = loader.load(file)
+    if content is None:
+        return {}
+    if not isinstance(content, dict):
+        name = getattr(file, "name", "<stream>")
+        raise ValueError(
+            f"Invalid configuration file '{name}': its top level must be a mapping, not {type(content).__name__}"
+        )
+    return content
+
+
 # update config with self._config, deep_update does not work with ruamel.yaml
 def merge_dicts(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
     """Merge two dictionaries with d2 overwriting values in d1."""
@@ -208,7 +222,7 @@ class _Config:
         ryaml.indent(mapping=2, sequence=4, offset=2)
 
         with Resource.open(self._default_env, "r") as file:
-            config = ryaml.load(file)
+            config = _load_yml(file, ryaml)
 
         # overwrite default env application.yml with exported config
         merge_dicts(config, self._config)
@@ -381,7 +395,7 @@ class _Config:
         user_home = self._user_home()
         if (user_home / f"{Spec.client_package_name}-user.yml").exists():
             with open(str(user_home / f"{Spec.client_package_name}-user.yml"), "r") as f:
-                application_yml = rYAML(typ="safe").load(f)
+                application_yml = _load_yml(f)
             version = application_yml.get("application", {"version": None})["version"]
             return version
         else:
@@ -427,7 +441,7 @@ class _Config:
         # read the application.yml as a dict from resources
         application_yml = None
         with Resource.open("application.yml", "r") as f:
-            application_yml = rYAML(typ="safe").load(f)
+            application_yml = _load_yml(f)
 
         if application_yml.get("application") is None:
             application_yml["application"] = {}
@@ -466,11 +480,11 @@ class _Config:
                 if filepath.exists():
                     self._logger.debug(f"Loading config from {filepath.absolute()}")
                     with open(filepath, "r") as file:
-                        env_config = rYAML(typ="safe").load(file)
+                        env_config = _load_yml(file)
                 else:
                     # load from the resource
                     with Resource.open(env_name, "r") as file:
-                        env_config = rYAML(typ="safe").load(file)
+                        env_config = _load_yml(file)
                     new_env_name = env_name.replace(".yml", "")
                 # update the configuration with the  new environment
                 self._config = merge_dicts(self._config, env_config)
@@ -483,7 +497,7 @@ class _Config:
                 self.refresh(f"{env_name}.yml", clear_previous)
         except Exception:
             # if it fails, restore the previous config
-            self._logger.warning(f"Failed to load {env_name}.yml, restoring previous config")
+            self._logger.warning(f"Failed to load {env_name}, restoring previous config")
             self._config = prev_config
             raise
 
