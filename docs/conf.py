@@ -4,17 +4,25 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import os
 import sys
+import tempfile
 
 import versioningit
 
 sys.path.insert(0, os.path.abspath("../src"))
 
+import neutrons_standard  # noqa: E402
+
+# `neutrons_standard.config` instantiates `Config` at import time, which requires `init(...)` to have been called,
+#   and writes a backup under `~/.config/<package>`: redirect that to a throwaway directory for autodoc.
+os.environ["HOME"] = tempfile.mkdtemp()
+neutrons_standard.init("neutrons_standard")
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Project Name"
+project = "Neutrons Standard"
 copyright = "Copyright 2025"  # noqa A001
-author = "Author Name"
+author = "Michael Walsh"
 
 # The short X.Y version
 # NOTE: need to specify the location of the pyproject.toml file instead of the
@@ -41,6 +49,9 @@ extensions = [
     "myst_parser",
 ]
 templates_path = ["_templates"]
+
+# generate GitHub-style anchors for headings, so in-page links like `#quick-start` in README.md resolve
+myst_heading_anchors = 3
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:

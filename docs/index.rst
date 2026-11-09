@@ -1,19 +1,20 @@
-=========================================
-Welcome to python project template docs!
-=========================================
+===============================
+Neutrons Standard Documentation
+===============================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    README
    config
    singleton
    time
+   api/index
 
-=========================================
+==================
 Indices and tables
-=========================================
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`

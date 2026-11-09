@@ -522,3 +522,45 @@ def test_configure_for_deploy_qa_or_prod():
         Config.configure_for_deploy()
         mock_version.assert_called_once()
         mock_merge_export.assert_called_once_with(DeployEnvEnum.QA.env_name())
+
+
+def test_refresh_empty_yml(tmp_path):
+    # an empty file is an empty config, not a crash on `None.items()`
+    empty_yml = tmp_path / "empty.yml"
+    empty_yml.touch()
+    with mock.patch.object(Config, "_config", {"some": {"value": 1}}):
+        Config.refresh(str(empty_yml))
+        assert Config["some.value"] == 1
+        assert Config["environment"] == str(empty_yml)
+
+
+def test_refresh_non_mapping_yml(tmp_path, caplog):
+    list_yml = tmp_path / "list.yml"
+    list_yml.write_text("- a\n- b\n")
+    with (
+        mock.patch.object(Config, "_config", {"some": {"value": 1}}),
+        caplog.at_level(logging.WARNING, logger=f"{package_name}.config.Config"),
+    ):
+        with pytest.raises(ValueError, match="top level must be a mapping, not list"):
+            Config.refresh(str(list_yml))
+        # the previous config is restored
+        assert Config["some.value"] == 1
+    # the file name is logged once: not as `list.yml.yml`
+    assert f"Failed to load {list_yml}, restoring previous config" in caplog.text
+
+
+def test_lazy_config_import_surfaces_attribute_error():
+    # an `AttributeError` while loading `config` must not be reported as `cannot import name 'Config'`
+    import builtins
+
+    real_import = builtins.__import__
+
+    def failing_import(name, *args, **kwargs):
+        if name == "neutrons_standard.config":
+            raise AttributeError("boom")
+        return real_import(name, *args, **kwargs)
+
+    with mock.patch("builtins.__import__", failing_import):
+        with pytest.raises(ImportError, match="Unable to load `neutrons_standard.config`") as exc_info:
+            from neutrons_standard import Config as _  # noqa: F401
+    assert isinstance(exc_info.value.__cause__, AttributeError)
