@@ -390,6 +390,58 @@ def test_swap_to_user_yml_archive():
             ).exists(), os.listdir(Path(tmp_path) / ".config" / package_name)
 
 
+@pytest.mark.parametrize(
+    "user_yml_content",
+    ["application:\n  some_setting: 1\nlogging:\n  level: 10\n", "application:\n", "logging:\n  level: 10\n", ""],
+    ids=["no-version-key", "null-application", "no-application", "empty"],
+)
+def test_swap_to_user_yml_without_version(user_yml_content):
+    # a hand-made -user.yml (e.g. copied from application.yml.bak) may lack `application.version`
+    with TemporaryDirectory() as tmp_path:
+        user_home = Path(tmp_path)
+        user_yml = user_home / f"{package_name}-user.yml"
+        user_yml.write_text(user_yml_content)
+        with (
+            mock.patch.object(Config, "_user_home", return_value=user_home),
+            mock.patch.object(Config, "_timestamp", return_value="ts"),
+        ):
+            Config.package_version = lambda: "1.0.0"
+            assert Config.get_user_yml_version_disk() is None
+            Config.swap_to_user_yml()
+
+            yml = rYAML(typ="safe").load(user_yml.read_text())
+            assert yml["application"]["version"] == "1.0.0"
+            assert (user_home / f"{package_name}-user-None-ts.yml.bak").read_text() == user_yml_content
+
+
+def test_swap_to_user_yml_carries_over_user_values():
+    with TemporaryDirectory() as tmp_path:
+        user_home = Path(tmp_path)
+        user_yml = user_home / f"{package_name}-user.yml"
+        user_yml.write_text(
+            "application:\n  version: 0.9.0\n"
+            "some:\n  nested:\n    value: 7\n    deprecated: 1\n"  # kept / dropped
+            "user: just-a-string\n"  # the default is a section now: dropped
+            "test:\n  multi-substitution:\n    home: ${user.application.home}/test\n"  # equals the default: left out
+            "removed_section:\n  key: 1\n"  # dropped
+        )
+        with mock.patch.object(Config, "_user_home", return_value=user_home):
+            Config.package_version = lambda: "1.0.0"
+            Config.swap_to_user_yml()
+
+            # only the overrides are written: defaults stay in application.yml
+            yml = rYAML(typ="safe").load(user_yml.read_text())
+            assert yml == {
+                "application": {"version": "1.0.0"},
+                "environment": f"{package_name}-user",
+                "some": {"nested": {"value": 7}},
+            }
+            # the merged config is still complete
+            assert Config["some.nested.value"] == 7
+            assert Config["user.application.home"].endswith(".neutrons_standard")
+            assert not Config.exists("removed_section")
+
+
 def test_swap_to_user_yml_same_version_no_archive():
     with TemporaryDirectory(prefix=Resource.get_path("outputs/")) as tmp_path:
         with mock.patch(f"{package_name}.config.Path.home") as mock_home:

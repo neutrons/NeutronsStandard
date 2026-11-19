@@ -86,6 +86,30 @@ def merge_dicts(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
     return d1
 
 
+def _filter_to_base(user: Dict[str, Any], base: Dict[str, Any], prefix: str = "") -> tuple[Dict[str, Any], list[str]]:
+    """Keep the `user` keys that `base` still has with a different value; return them and the dotted keys dropped.
+
+    Values equal to the default are left out so later default changes reach the user.
+    """
+    kept, dropped = {}, []
+    for key, value in user.items():
+        path = f"{prefix}{key}"
+        if key not in base:
+            dropped.append(path)
+        elif not isinstance(base[key], dict):
+            if value != base[key]:
+                kept[key] = value
+        elif isinstance(value, dict):
+            sub_kept, sub_dropped = _filter_to_base(value, base[key], f"{path}.")
+            if sub_kept:
+                kept[key] = sub_kept
+            dropped += sub_dropped
+        else:
+            # the default became a section: the old scalar no longer fits
+            dropped.append(path)
+    return kept, dropped
+
+
 # `~user` values whose user doesn't exist, so the warning is logged once rather than on every read
 _unknown_homes: set[str] = set()
 
@@ -396,8 +420,10 @@ class _Config:
         if (user_home / f"{Spec.client_package_name}-user.yml").exists():
             with open(str(user_home / f"{Spec.client_package_name}-user.yml"), "r") as f:
                 application_yml = _load_yml(f)
-            version = application_yml.get("application", {"version": None})["version"]
-            return version
+            application = application_yml.get("application")
+            if not isinstance(application, dict):
+                return None
+            return application.get("version")
         else:
             return None
 
@@ -411,11 +437,18 @@ class _Config:
                 user_home.mkdir(parents=True, exist_ok=True)
 
             # check if -user.yml exists
-            if self.get_user_yml_version_disk() != self.package_version():
+            user_yml_version = self.get_user_yml_version_disk()
+            if user_yml_version != self.package_version():
                 # if the version is not the same, then we need to archive the old one
-                if self.get_user_yml_version_disk() is not None:
+                if user_yml_version is not None:
                     self._logger.warning(
-                        "The user configuration file is out of date. A new configuration file will be generated."
+                        "The user configuration file is out of date. It will be archived and regenerated, "
+                        "keeping your overrides of keys still in application.yml."
+                    )
+                elif (user_home / f"{Spec.client_package_name}-user.yml").exists():
+                    self._logger.warning(
+                        "The user configuration file has no `application.version`. It will be archived and "
+                        "regenerated, keeping your overrides of keys still in application.yml."
                     )
                 # archive the old -user.yml
                 self.archive_user_yml()
@@ -435,25 +468,29 @@ class _Config:
             self.load_env(str(user_home / f"{Spec.client_package_name}-user.yml"))
 
     def _generate_user_yml(self) -> None:
-        """Generate a default application config in the user's home dir."""
+        """Write the user config: the version stamp plus the old user overrides that `application.yml` still has."""
         user_home = self._user_home()
-        # copy commented out application.yml as -user.yml
-        # read the application.yml as a dict from resources
-        application_yml = None
-        with Resource.open("application.yml", "r") as f:
-            application_yml = _load_yml(f)
+        user_yml_path = user_home / f"{Spec.client_package_name}-user.yml"
+        # only overrides are stored: everything else comes from application.yml when the file is merged on top
+        user_yml = {
+            "application": {"version": self.package_version()},
+            "environment": f"{Spec.client_package_name}-user",
+        }
 
-        if application_yml.get("application") is None:
-            application_yml["application"] = {}
-        application_yml["application"]["version"] = self.package_version()
-        application_yml["environment"] = f"{Spec.client_package_name}-user"
+        if user_yml_path.exists():
+            with Resource.open("application.yml", "r") as f:
+                base = merge_dicts(_load_yml(f), user_yml)  # the stamped keys count as known
+            with open(user_yml_path, "r") as f:
+                overrides, dropped = _filter_to_base(_load_yml(f), base)
+            if dropped:
+                self._logger.warning(
+                    f"Removed user configuration keys that are no longer in application.yml: {', '.join(dropped)}"
+                    " (the previous file is archived)"
+                )
+            user_yml = merge_dicts(overrides, user_yml)
 
-        # convert the dict back to a yaml string
-        application_yml_str = yaml.dump(application_yml, default_flow_style=False)
-
-        # write the application.yml to the user home as -user.yml
-        with open(user_home / f"{Spec.client_package_name}-user.yml", "w") as f:
-            f.write(application_yml_str)
+        with open(user_yml_path, "w") as f:
+            yaml.dump(user_yml, f, default_flow_style=False)
 
     def get_current_env(self) -> str:
         if self.env is not None:

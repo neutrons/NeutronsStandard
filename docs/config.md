@@ -4,6 +4,8 @@
 
 Recall that you must first initialize the package with `neutrons_standard.init()` before using `Config`. See the [Quick Start](README.md#quick-start) section for details.
 
+For a full list of available methods, see the [API Reference](api/config.rst).
+
 ## Configuration File Structure
 
 Configuration files are YAML format and can be organized in a hierarchical structure.
@@ -109,7 +111,7 @@ module:
 
 ### User Configuration Management
 
-User config (`~/.config/{package_name}/{package_name}-user.yml`) auto-loads if present, no explicit `env` is specified, and this is not a test run. If its `application.version` does not match the installed version, it is archived and regenerated from `application.yml`, replacing any hand edits. Only the newest `application.user_yml_archive_limit` archives are kept: 5 by default, `-1` keeps all of them (unlimited), and `0` keeps none. Set it in `application.yml` or an environment file:
+User config (`~/.config/{package_name}/{package_name}-user.yml`) auto-loads if present, no explicit `env` is specified, and this is not a test run. If its `application.version` does not match the installed version (or is missing), it is archived and regenerated: your overrides of keys still in `application.yml` are kept (values equal to the default are dropped), keys no longer there are removed (with a warning), and the version is updated. The user config only holds overrides; every other value comes from `application.yml`, so changed defaults reach you on upgrade. Only the newest `application.user_yml_archive_limit` archives are kept: 5 by default, `-1` keeps all of them (unlimited), and `0` keeps none. Set it in `application.yml` or an environment file:
 
 ```yaml
 application:
